@@ -438,32 +438,54 @@ def load_embedded_font():
 
 # Export functions
 def export_summary_to_pdf(summary_text, filename):
+    def export_to_pdf(text, filename):
     """Export transcription to PDF using FPDF with Unicode support"""
     try:
-        import os
         from fpdf import FPDF
-
-        # Build absolute path to font file
-        font_path = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
-
-        if not os.path.isfile(font_path):
-            st.error(f"Font file not found at: {font_path}")
-            return None
+        
+        # ALWAYS use auto-downloaded font
+        font_path = get_dejavu_font()
 
         pdf = FPDF()
         pdf.add_page()
-
         pdf.add_font("DejaVu", "", font_path, uni=True)
         pdf.set_font("DejaVu", "", 11)
 
         for line in text.split("\n"):
             pdf.multi_cell(0, 8, line)
 
-        return pdf.output(dest='S').encode('latin-1')
+        return pdf.output(dest="S").encode("latin-1")
 
     except Exception as e:
         st.error(f"PDF export failed: {e}")
         return None
+
+    # """Export transcription to PDF using FPDF with Unicode support"""
+    # try:
+    #     import os
+    #     from fpdf import FPDF
+
+    #     # Build absolute path to font file
+    #     font_path = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
+
+    #     if not os.path.isfile(font_path):
+    #         st.error(f"Font file not found at: {font_path}")
+    #         return None
+
+    #     pdf = FPDF()
+    #     pdf.add_page()
+
+    #     pdf.add_font("DejaVu", "", font_path, uni=True)
+    #     pdf.set_font("DejaVu", "", 11)
+
+    #     for line in text.split("\n"):
+    #         pdf.multi_cell(0, 8, line)
+
+    #     return pdf.output(dest='S').encode('latin-1')
+
+    # except Exception as e:
+    #     st.error(f"PDF export failed: {e}")
+    #     return None
     # """Export formatted summary to PDF"""
     # if not PDF_AVAILABLE:
     #     return summary_text.encode('utf-8')
@@ -526,28 +548,50 @@ def export_summary_to_docx(summary_text, filename):
         return None
 
 def export_to_pdf(text, filename):
+    def export_to_pdf(text, filename):
     """Export transcription to PDF using FPDF with Unicode support"""
     try:
         from fpdf import FPDF
+        
+        # ALWAYS use auto-downloaded font
+        font_path = get_dejavu_font()
 
         pdf = FPDF()
         pdf.add_page()
-
-        # Register bundled unicode font (must be in project folder)
-        pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+        pdf.add_font("DejaVu", "", font_path, uni=True)
         pdf.set_font("DejaVu", "", 11)
 
-        # Split long lines automatically
-        lines = text.split("\n")
-        for line in lines:
+        for line in text.split("\n"):
             pdf.multi_cell(0, 8, line)
 
-        # Return PDF bytes
-        return pdf.output(dest='S').encode('latin-1')
+        return pdf.output(dest="S").encode("latin-1")
 
     except Exception as e:
         st.error(f"PDF export failed: {e}")
         return None
+
+    # """Export transcription to PDF using FPDF with Unicode support"""
+    # try:
+    #     from fpdf import FPDF
+
+    #     pdf = FPDF()
+    #     pdf.add_page()
+
+    #     # Register bundled unicode font (must be in project folder)
+    #     pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+    #     pdf.set_font("DejaVu", "", 11)
+
+    #     # Split long lines automatically
+    #     lines = text.split("\n")
+    #     for line in lines:
+    #         pdf.multi_cell(0, 8, line)
+
+    #     # Return PDF bytes
+    #     return pdf.output(dest='S').encode('latin-1')
+
+    # except Exception as e:
+    #     st.error(f"PDF export failed: {e}")
+    #     return None
     # """Export transcription to PDF"""
     # try:
     #     if PDF_AVAILABLE:
@@ -1110,6 +1154,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
