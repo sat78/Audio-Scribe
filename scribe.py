@@ -471,42 +471,64 @@ def export_summary_to_docx(summary_text, filename):
         return None
 
 def export_to_pdf(text, filename):
-    """Export transcription to PDF"""
+    """Export transcription to PDF using FPDF with Unicode support"""
     try:
-        if PDF_AVAILABLE:
-            try:
-                from fpdf import FPDF
-                
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.set_auto_page_break(auto=True, margin=15)
-                
-                pdf.set_font("Arial", 'B', 16)
-                pdf.cell(0, 10, 'Transcription', 0, 1, 'C')
-                pdf.ln(10)
-                
-                pdf.set_font("Arial", size=11)
-                
-                clean_text = text.replace('\r', '').replace('\x00', '')
-                paragraphs = clean_text.split('\n')
-                
-                for para in paragraphs:
-                    if para.strip():
-                        safe_para = para.encode('ascii', 'ignore').decode('ascii')
-                        pdf.multi_cell(0, 6, txt=safe_para)
-                        pdf.ln(2)
-                
-                return bytes(pdf.output())
-                
-            except Exception as e:
-                st.warning(f"FPDF failed: {e}. Using simple text PDF.")
-        
-        st.info("PDF library not available. Downloading as formatted text instead.")
-        return text.encode('utf-8')
-        
+        from fpdf import FPDF
+
+        pdf = FPDF()
+        pdf.add_page()
+
+        # Register bundled unicode font (must be in project folder)
+        pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+        pdf.set_font("DejaVu", "", 11)
+
+        # Split long lines automatically
+        lines = text.split("\n")
+        for line in lines:
+            pdf.multi_cell(0, 8, line)
+
+        # Return PDF bytes
+        return pdf.output(dest='S').encode('latin-1')
+
     except Exception as e:
-        st.error(f"Error creating PDF: {e}")
+        st.error(f"PDF export failed: {e}")
         return None
+    # """Export transcription to PDF"""
+    # try:
+    #     if PDF_AVAILABLE:
+    #         try:
+    #             from fpdf import FPDF
+                
+    #             pdf = FPDF()
+    #             pdf.add_page()
+    #             pdf.set_auto_page_break(auto=True, margin=15)
+                
+    #             pdf.set_font("Arial", 'B', 16)
+    #             pdf.cell(0, 10, 'Transcription', 0, 1, 'C')
+    #             pdf.ln(10)
+                
+    #             pdf.set_font("Arial", size=11)
+                
+    #             clean_text = text.replace('\r', '').replace('\x00', '')
+    #             paragraphs = clean_text.split('\n')
+                
+    #             for para in paragraphs:
+    #                 if para.strip():
+    #                     safe_para = para.encode('ascii', 'ignore').decode('ascii')
+    #                     pdf.multi_cell(0, 6, txt=safe_para)
+    #                     pdf.ln(2)
+                
+    #             return bytes(pdf.output())
+                
+    #         except Exception as e:
+    #             st.warning(f"FPDF failed: {e}. Using simple text PDF.")
+        
+    #     st.info("PDF library not available. Downloading as formatted text instead.")
+    #     return text.encode('utf-8')
+        
+    # except Exception as e:
+    #     st.error(f"Error creating PDF: {e}")
+    #     return None
 
 def export_to_docx(text, filename):
     """Export transcription to DOCX"""
@@ -1033,5 +1055,6 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
