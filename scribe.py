@@ -4,7 +4,9 @@ st.markdown("<style>.stFileUploader input[type=file] {max-file-size: 500MB;}</st
 import os
 import tempfile
 from datetime import datetime
-from moviepy.editor import VideoFileClip
+#from moviepy.editor import VideoFileClip
+import moviepy.editor as mp
+from moviepy.video.io.VideoFileClip import VideoFileClip
 from pydub import AudioSegment
 from pydub.utils import make_chunks
 import speech_recognition as sr
@@ -1029,4 +1031,5 @@ st.markdown("""
             <a href='#' style='color: #6B7280; margin: 0 0.5rem;'>Privacy</a>
         </p>
     </div>
+
 """, unsafe_allow_html=True)
