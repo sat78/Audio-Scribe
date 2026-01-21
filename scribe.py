@@ -438,7 +438,7 @@ def load_embedded_font():
 
 # Export functions
 def export_summary_to_pdf(summary_text, filename):
-    def export_to_pdf(text, filename):
+    
     """Export transcription to PDF using FPDF with Unicode support"""
     try:
         from fpdf import FPDF
@@ -548,7 +548,7 @@ def export_summary_to_docx(summary_text, filename):
         return None
 
 def export_to_pdf(text, filename):
-    def export_to_pdf(text, filename):
+    
     """Export transcription to PDF using FPDF with Unicode support"""
     try:
         from fpdf import FPDF
@@ -1154,6 +1154,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
