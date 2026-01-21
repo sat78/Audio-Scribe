@@ -409,39 +409,65 @@ def transcribe_long_audio_enhanced(file_path, chunk_length_ms=60000, show_timest
 
 # Export functions
 def export_summary_to_pdf(summary_text, filename):
-    """Export formatted summary to PDF"""
-    if not PDF_AVAILABLE:
-        return summary_text.encode('utf-8')
-    
+    """Export transcription to PDF using FPDF with Unicode support"""
     try:
+        import os
         from fpdf import FPDF
-        
+
+        # Build absolute path to font file
+        font_path = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
+
+        if not os.path.isfile(font_path):
+            st.error(f"Font file not found at: {font_path}")
+            return None
+
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        
-        pdf.set_font("Arial", 'B', 16)
-        pdf.cell(0, 10, 'AI Summary', 0, 1, 'C')
-        pdf.ln(5)
-        
-        pdf.set_font("Arial", size=10)
-        
-        lines = summary_text.split('\n')
-        for line in lines:
-            safe_line = line.encode('ascii', 'ignore').decode('ascii')
-            if safe_line.startswith('#'):
-                pdf.set_font("Arial", 'B', 12)
-                pdf.multi_cell(0, 6, txt=safe_line.replace('#', '').strip())
-                pdf.set_font("Arial", size=10)
-            else:
-                pdf.multi_cell(0, 6, txt=safe_line)
-            pdf.ln(2)
-        
-        return bytes(pdf.output())
-        
+
+        pdf.add_font("DejaVu", "", font_path, uni=True)
+        pdf.set_font("DejaVu", "", 11)
+
+        for line in text.split("\n"):
+            pdf.multi_cell(0, 8, line)
+
+        return pdf.output(dest='S').encode('latin-1')
+
     except Exception as e:
-        st.error(f"Error creating PDF: {e}")
-        return summary_text.encode('utf-8')
+        st.error(f"PDF export failed: {e}")
+        return None
+    # """Export formatted summary to PDF"""
+    # if not PDF_AVAILABLE:
+    #     return summary_text.encode('utf-8')
+    
+    # try:
+    #     from fpdf import FPDF
+        
+    #     pdf = FPDF()
+    #     pdf.add_page()
+    #     pdf.set_auto_page_break(auto=True, margin=15)
+        
+    #     pdf.set_font("Arial", 'B', 16)
+    #     pdf.cell(0, 10, 'AI Summary', 0, 1, 'C')
+    #     pdf.ln(5)
+        
+    #     pdf.set_font("Arial", size=10)
+        
+    #     lines = summary_text.split('\n')
+    #     for line in lines:
+    #         safe_line = line.encode('ascii', 'ignore').decode('ascii')
+    #         if safe_line.startswith('#'):
+    #             pdf.set_font("Arial", 'B', 12)
+    #             pdf.multi_cell(0, 6, txt=safe_line.replace('#', '').strip())
+    #             pdf.set_font("Arial", size=10)
+    #         else:
+    #             pdf.multi_cell(0, 6, txt=safe_line)
+    #         pdf.ln(2)
+        
+    #     return bytes(pdf.output())
+        
+    # except Exception as e:
+    #     st.error(f"Error creating PDF: {e}")
+    #     return summary_text.encode('utf-8')
 
 def export_summary_to_docx(summary_text, filename):
     """Export formatted summary to DOCX"""
@@ -1055,6 +1081,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
