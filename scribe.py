@@ -466,7 +466,7 @@ def export_summary_to_pdf(summary_text, filename):
         for line in text.split("\n"):
             pdf.multi_cell(0, 8, line)
 
-        return pdf.output(dest="S").encode("latin-1")
+        return bytes(pdf.output(dest="S")) 
 
     except Exception as e:
         st.error(f"PDF export failed: {e}")
@@ -576,7 +576,7 @@ def export_to_pdf(text, filename):
         for line in text.split("\n"):
             pdf.multi_cell(0, 8, line)
 
-        return pdf.output(dest="S").encode("latin-1")
+        return bytes(pdf.output(dest="S")) 
 
     except Exception as e:
         st.error(f"PDF export failed: {e}")
@@ -1166,6 +1166,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
