@@ -216,10 +216,9 @@ OBk9TLzJp9Y8AAARsAAAIMEdjbWFw6AHkEAAE8wAAAORmZ2FzcAAAAAEABEwAAAAIZ2x5ZvdUAw4A
 AhxwAAAIImhlYWQTFQq3AAMb8AAAADZoaGVhCGgPvAADEfAAAABQaG10eEeQB9IAAxQQAAAAIGxv
 Y2EEMQInAAMp8AAAABJtYXhwAQACAAADNQAAAAgbmFtZQAAAgAAAzwAAAEQcG9zdAAAAgAADQUAA
 AAUcHJlcAAAAAIAAAQqAAAAIAEAAf//AAD/////AAAAAW4FpgAAAAD6AQUAAQAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAA
+...
 """
+
 
 
 
@@ -436,41 +435,52 @@ def transcribe_long_audio_enhanced(file_path, chunk_length_ms=60000, show_timest
         st.error(f"Google API Error: {e}")
         st.info("💡 Try using AssemblyAI (fastest) or Vosk (offline) instead")
         return None, None
-def load_embedded_font():
-    import base64, os
 
-    font_file = "DejaVuSans_embedded.ttf"
-
-    if not os.path.exists(font_file):
-        with open(font_file, "wb") as f:
-            f.write(base64.b64decode(DEJAVU_FONT_BASE64))
-
-    return font_file
 
 
 # Export functions
 def export_summary_to_pdf(summary_text, filename):
-    
-    """Export transcription to PDF using FPDF with Unicode support"""
     try:
         from fpdf import FPDF
         
-        # ALWAYS use auto-downloaded font
-        font_path = get_dejavu_font()
-
         pdf = FPDF()
         pdf.add_page()
-        pdf.add_font("DejaVu", "", font_path, uni=True)
-        pdf.set_font("DejaVu", "", 11)
+        pdf.set_auto_page_break(auto=True, margin=15)
 
-        for line in text.split("\n"):
-            pdf.multi_cell(0, 8, line)
+        pdf.set_font("Arial", size=11)
 
-        return bytes(pdf.output(dest="S")) 
+        clean = summary_text.encode("ascii", "ignore").decode()
+        for line in clean.split("\n"):
+            pdf.multi_cell(0, 7, line)
+
+        return pdf.output(dest="S").encode("latin-1", "ignore")
 
     except Exception as e:
         st.error(f"PDF export failed: {e}")
         return None
+
+# def export_summary_to_pdf(summary_text, filename):
+    
+#     """Export transcription to PDF using FPDF with Unicode support"""
+#     try:
+#         from fpdf import FPDF
+        
+#         # ALWAYS use auto-downloaded font
+#         font_path = get_dejavu_font()
+
+#         pdf = FPDF()
+#         pdf.add_page()
+#         pdf.add_font("DejaVu", "", font_path, uni=True)
+#         pdf.set_font("DejaVu", "", 11)
+
+#         for line in text.split("\n"):
+#             pdf.multi_cell(0, 8, line)
+
+#         return bytes(pdf.output(dest="S")) 
+
+#     except Exception as e:
+#         st.error(f"PDF export failed: {e}")
+#         return None
 
     # """Export transcription to PDF using FPDF with Unicode support"""
     # try:
@@ -558,29 +568,47 @@ def export_summary_to_docx(summary_text, filename):
     except Exception as e:
         st.error(f"Error creating DOCX: {e}")
         return None
-
 def export_to_pdf(text, filename):
-    
-    """Export transcription to PDF using FPDF with Unicode support"""
     try:
         from fpdf import FPDF
         
-        # ALWAYS use auto-downloaded font
-        font_path = get_dejavu_font()
-
         pdf = FPDF()
         pdf.add_page()
-        pdf.add_font("DejaVu", "", font_path, uni=True)
-        pdf.set_font("DejaVu", "", 11)
+
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.set_font("Arial", size=11)
 
         for line in text.split("\n"):
-            pdf.multi_cell(0, 8, line)
+            pdf.multi_cell(0, 7, line)
 
-        return bytes(pdf.output(dest="S")) 
+        return pdf.output(dest="S").encode("latin-1", "ignore")
 
     except Exception as e:
         st.error(f"PDF export failed: {e}")
         return None
+
+# def export_to_pdf(text, filename):
+    
+#     """Export transcription to PDF using FPDF with Unicode support"""
+#     try:
+#         from fpdf import FPDF
+        
+#         # ALWAYS use auto-downloaded font
+#         font_path = get_dejavu_font()
+
+#         pdf = FPDF()
+#         pdf.add_page()
+#         pdf.add_font("DejaVu", "", font_path, uni=True)
+#         pdf.set_font("DejaVu", "", 11)
+
+#         for line in text.split("\n"):
+#             pdf.multi_cell(0, 8, line)
+
+#         return bytes(pdf.output(dest="S")) 
+
+#     except Exception as e:
+#         st.error(f"PDF export failed: {e}")
+#         return None
 
     # """Export transcription to PDF using FPDF with Unicode support"""
     # try:
@@ -1166,6 +1194,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
