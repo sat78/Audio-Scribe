@@ -224,23 +224,19 @@ AAAAAAAAAAAAAAAAAAAA
 
 
 # Enhanced transcription functions
-def get_dejavu_font():
-    import os, requests
+import base64
+import os
 
+def get_dejavu_font():
     font_path = "DejaVuSans.ttf"
 
-    # If the font does NOT exist, download it automatically
+    # Write the font file from Base64 (NO internet)
     if not os.path.isfile(font_path):
-        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
-        r = requests.get(url)
-
-        if r.status_code != 200:
-            raise Exception("Failed to download DejaVuSans.ttf from GitHub")
-
         with open(font_path, "wb") as f:
-            f.write(r.content)
+            f.write(base64.b64decode(DEJAVU_FONT_BASE64))
 
     return font_path
+
 
 def transcribe_video_to_text_enhanced(video_path):
     """Extract audio from video with optimized settings"""
@@ -1170,6 +1166,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
