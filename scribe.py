@@ -220,8 +220,8 @@ def transcribe_video_to_text_enhanced(video_path):
             fps=16000,
             nbytes=2,
             codec='pcm_s16le',
-            logger=None,
-            verbose=False
+            logger=None
+            
         )
         
         audio_clip.close()
@@ -1033,4 +1033,5 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
