@@ -208,6 +208,24 @@ if 'assemblyai_key' not in st.session_state:
     st.session_state.assemblyai_key = 'b47ac0657d2a40a391296e6b09578629'
 
 # Enhanced transcription functions
+def get_dejavu_font():
+    import os, requests
+
+    font_path = "DejaVuSans.ttf"
+
+    # If the font does NOT exist, download it automatically
+    if not os.path.isfile(font_path):
+        url = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
+        r = requests.get(url)
+
+        if r.status_code != 200:
+            raise Exception("Failed to download DejaVuSans.ttf from GitHub")
+
+        with open(font_path, "wb") as f:
+            f.write(r.content)
+
+    return font_path
+
 def transcribe_video_to_text_enhanced(video_path):
     """Extract audio from video with optimized settings"""
     try:
@@ -1092,6 +1110,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
