@@ -1,7 +1,7 @@
 import streamlit as st
 st.session_state["MAX_UPLOAD_SIZE_MB"] = 500
 st.markdown("<style>.stFileUploader input[type=file] {max-file-size: 500MB;}</style>", unsafe_allow_html=True)
-import os
+import os, base64
 import tempfile
 from datetime import datetime
 #from moviepy.editor import VideoFileClip
@@ -406,6 +406,17 @@ def transcribe_long_audio_enhanced(file_path, chunk_length_ms=60000, show_timest
         st.error(f"Google API Error: {e}")
         st.info("💡 Try using AssemblyAI (fastest) or Vosk (offline) instead")
         return None, None
+def load_embedded_font():
+    import base64, os
+
+    font_file = "DejaVuSans_embedded.ttf"
+
+    if not os.path.exists(font_file):
+        with open(font_file, "wb") as f:
+            f.write(base64.b64decode(DEJAVU_FONT_BASE64))
+
+    return font_file
+
 
 # Export functions
 def export_summary_to_pdf(summary_text, filename):
@@ -1081,6 +1092,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
