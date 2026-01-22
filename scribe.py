@@ -928,7 +928,7 @@ with col_main:
                             st.success("✅ Transcription saved successfully!")
                             st.rerun()
             
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
     
     # Display transcription result
     if st.session_state.current_transcription and not st.session_state.show_upload_modal:
@@ -1122,6 +1122,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
