@@ -862,14 +862,14 @@ with col_main:
             #     with st.spinner("🎬 Extracting audio from video..."):
             #         audio_path = transcribe_video_to_text_enhanced(video_path)
                 
-                if audio_path:
+                    if audio_path:
                     # Choose transcription engine
-                    if 'engine' in locals():
-                        if "AssemblyAI" in engine:
-                            with st.spinner("☁️ Transcribing with AssemblyAI..."):
-                                transcription, timestamped = transcribe_with_assemblyai(
-                                    audio_path,
-                                    show_timestamps=show_timestamps
+                        if 'engine' in locals():
+                            if "AssemblyAI" in engine:
+                                with st.spinner("☁️ Transcribing with AssemblyAI..."):
+                                    transcription, timestamped = transcribe_with_assemblyai(
+                                        audio_path,
+                                        show_timestamps=show_timestamps
                                 )
                         # elif "Vosk" in engine and VOSK_AVAILABLE:
                         #     with st.spinner("💻 Transcribing with Vosk..."):
@@ -877,42 +877,42 @@ with col_main:
                         #             audio_path,
                         #             show_timestamps=show_timestamps
                         #         )
+                            else:
+                                with st.spinner("⚡ Transcribing with Google API (Parallel)..."):
+                                    transcription, timestamped = transcribe_long_audio_enhanced(
+                                        audio_path, 
+                                        chunk_length_ms=180000,  # 1 minute per chunk
+                                        show_timestamps=show_timestamps
+                                    )
                         else:
-                            with st.spinner("⚡ Transcribing with Google API (Parallel)..."):
+                             with st.spinner("🎙️ Transcribing with Google Speech API..."):
                                 transcription, timestamped = transcribe_long_audio_enhanced(
                                     audio_path, 
                                     chunk_length_ms=180000,  # 1 minute per chunk
                                     show_timestamps=show_timestamps
                                 )
-                    else:
-                        with st.spinner("🎙️ Transcribing with Google Speech API..."):
-                            transcription, timestamped = transcribe_long_audio_enhanced(
-                                audio_path, 
-                                chunk_length_ms=180000,  # 1 minute per chunk
-                                show_timestamps=show_timestamps
-                            )
                     
-                    if transcription:
+                        if transcription:
                         # Calculate duration (simple estimation)
-                        try:
-                            audio = AudioSegment.from_file(audio_path)
-                            duration_seconds = len(audio) / 1000
-                            duration_minutes = int(duration_seconds / 60)
-                            duration = f"{duration_minutes}m"
-                        except:
-                            duration = "N/A"
+                            try:
+                                audio = AudioSegment.from_file(audio_path)
+                                duration_seconds = len(audio) / 1000
+                                duration_minutes = int(duration_seconds / 60)
+                                duration = f"{duration_minutes}m"
+                            except:
+                                duration = "N/A"
                         
                         # Save transcription
-                        st.session_state.current_transcription = {
-                            'filename': uploaded_file.name,
-                            'text': transcription,
-                            'timestamped': timestamped,
-                            'date': datetime.now().strftime("%b %d, %Y, %I:%M %p"),
-                            'duration': duration,
-                            'summary': None
-                        }
-                        st.session_state.transcriptions.append(st.session_state.current_transcription)
-                        st.session_state.show_upload_modal = False
+                            st.session_state.current_transcription = {
+                                'filename': uploaded_file.name,
+                                'text': transcription,
+                                'timestamped': timestamped,
+                                'date': datetime.now().strftime("%b %d, %Y, %I:%M %p"),
+                                'duration': duration,
+                                'summary': None
+                            }
+                            st.session_state.transcriptions.append(st.session_state.current_transcription)
+                            st.session_state.show_upload_modal = False
                         
                         # Cleanup
                         # if os.path.exists(audio_path):
@@ -920,13 +920,13 @@ with col_main:
                         # if os.path.exists(video_path):
                         #     os.remove(video_path)
                         # Cleanup
-                        if os.path.exists(audio_path):
-                            os.remove(audio_path)
-                        if os.path.exists(file_path):
-                            os.remove(file_path)
+                            if os.path.exists(audio_path):
+                                os.remove(audio_path)
+                            if os.path.exists(file_path):
+                                os.remove(file_path)
                         
-                        st.success("✅ Transcription saved successfully!")
-                        st.rerun()
+                            st.success("✅ Transcription saved successfully!")
+                            st.rerun()
             
             st.markdown('</div>', unsafe_allow_html=True)
     
@@ -1122,6 +1122,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
