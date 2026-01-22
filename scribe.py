@@ -820,7 +820,7 @@ with col_main:
                 )
             
             # Transcribe button
-                if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
+            if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
                 # Save uploaded file
                     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
                         tmp_file.write(uploaded_file.getvalue())
@@ -1122,6 +1122,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
