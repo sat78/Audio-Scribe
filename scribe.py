@@ -235,31 +235,71 @@ def get_dejavu_font():
             f.write(base64.b64decode(DEJAVU_FONT_BASE64))
 
     return font_path
+    
 
-
-def transcribe_video_to_text_enhanced(video_path):
-    """Extract audio from video with optimized settings"""
+  def transcribe_video_to_text_enhanced(video_path):
+    """Extract audio from video OR process audio file directly"""
     try:
-        video_clip = VideoFileClip(video_path)
-        audio_clip = video_clip.audio
-        audio_path = "temp_audio.wav"
+        # Check if it's already an audio file
+        audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+        file_ext = os.path.splitext(video_path)[1].lower()
         
-        audio_clip.write_audiofile(
-            audio_path,
-            fps=16000,
-            nbytes=2,
-            codec='pcm_s16le',
-            logger=None
+        if file_ext in audio_extensions:
+            # It's an audio file, convert to WAV format
+            st.info(f"📢 Processing audio file: {os.path.basename(video_path)}")
+            audio = AudioSegment.from_file(video_path)
+            audio_path = "temp_audio.wav"
+            audio.export(
+                audio_path,
+                format="wav",
+                parameters=["-ar", "16000", "-ac", "1"]
+            )
+            return audio_path
+        else:
+            # It's a video file, extract audio
+            st.info(f"🎬 Extracting audio from video: {os.path.basename(video_path)}")
+            video_clip = VideoFileClip(video_path)
+            audio_clip = video_clip.audio
+            audio_path = "temp_audio.wav"
             
-        )
-        
-        audio_clip.close()
-        video_clip.close()
-        
-        return audio_path
+            audio_clip.write_audiofile(
+                audio_path,
+                fps=16000,
+                nbytes=2,
+                codec='pcm_s16le',
+                logger=None
+            )
+            
+            audio_clip.close()
+            video_clip.close()
+            
+            return audio_path
     except Exception as e:
-        st.error(f"Error extracting audio: {e}")
+        st.error(f"Error processing file: {e}")
         return None
+# def transcribe_video_to_text_enhanced(video_path):
+#     """Extract audio from video with optimized settings"""
+#     try:
+#         video_clip = VideoFileClip(video_path)
+#         audio_clip = video_clip.audio
+#         audio_path = "temp_audio.wav"
+        
+#         audio_clip.write_audiofile(
+#             audio_path,
+#             fps=16000,
+#             nbytes=2,
+#             codec='pcm_s16le',
+#             logger=None
+            
+#         )
+        
+#         audio_clip.close()
+#         video_clip.close()
+        
+#         return audio_path
+#     except Exception as e:
+#         st.error(f"Error extracting audio: {e}")
+#         return None
 
 def transcribe_with_assemblyai(audio_path, show_timestamps=False):
     """Super fast transcription using AssemblyAI"""
@@ -724,17 +764,30 @@ with col_main:
             # File uploader
             st.markdown('<div class="drag-drop-area">', unsafe_allow_html=True)
             uploaded_file = st.file_uploader(
-                "Drag and drop file here\nLimit 500MB per file • MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, MPEG, WMA, WMV, MPG, MPEG4",
-                type=['mp3', 'mp4', 'm4a', 'mov', 'aac', 'wav', 'ogg', 'opus', 'mpeg', 'wma', 'wmv', 'mpg', 'mpeg4'],
+                "Drag and drop file here\nLimit 500MB per file • Audio & Video Files Supported",
+                type=['mp3', 'mp4', 'm4a', 'mov', 'aac', 'wav', 'ogg', 'opus', 'mpeg', 'wma', 'wmv', 'mpg', 'mpeg4', 'flac', 'webm', 'avi'],
                 label_visibility="collapsed",
                 accept_multiple_files=False,
                 key="file_uploader",
                 help="File must be 500MB or smaller."
             )
             if not uploaded_file:
-                st.markdown("**MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, MPEG, WMA, WMV, MPG, MPEG4**")
-                st.markdown("— OR —")
-                st.markdown("**BROWSE FILES**")
+            st.markdown("**🎵 Audio Files:** MP3, WAV, M4A, AAC, OGG, OPUS, WMA, FLAC")
+            st.markdown("**🎬 Video Files:** MP4, MOV, MPEG, WMV, MPG, MPEG4, WEBM, AVI")
+            st.markdown("— OR —")
+            st.markdown("**BROWSE FILES**")
+            # uploaded_file = st.file_uploader(
+            #     "Drag and drop file here\nLimit 500MB per file • MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, MPEG, WMA, WMV, MPG, MPEG4",
+            #     type=['mp3', 'mp4', 'm4a', 'mov', 'aac', 'wav', 'ogg', 'opus', 'mpeg', 'wma', 'wmv', 'mpg', 'mpeg4'],
+            #     label_visibility="collapsed",
+            #     accept_multiple_files=False,
+            #     key="file_uploader",
+            #     help="File must be 500MB or smaller."
+            # )
+            # if not uploaded_file:
+            #     st.markdown("**MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, MPEG, WMA, WMV, MPG, MPEG4**")
+            #     st.markdown("— OR —")
+            #     st.markdown("**BROWSE FILES**")
             st.markdown('</div>', unsafe_allow_html=True)
             
             # Language selection
@@ -767,14 +820,31 @@ with col_main:
                 )
             
             # Transcribe button
-            if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
-                # Save uploaded file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-                    tmp_file.write(uploaded_file.getvalue())
-                    video_path = tmp_file.name
+            
+              if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
+                  # Save uploaded file
+                  with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
+                      tmp_file.write(uploaded_file.getvalue())
+                      file_path = tmp_file.name
+    
+    # Detect file type
+                file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+                audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+    
+                if file_ext in audio_extensions:
+                    with st.spinner("🎵 Processing audio file..."):
+                        audio_path = transcribe_video_to_text_enhanced(file_path)
+                else:
+                    with st.spinner("🎬 Extracting audio from video..."):
+                        audio_path = transcribe_video_to_text_enhanced(file_path)
+            # if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
+            #     # Save uploaded file
+            #     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
+            #         tmp_file.write(uploaded_file.getvalue())
+            #         video_path = tmp_file.name
                 
-                with st.spinner("🎬 Extracting audio from video..."):
-                    audio_path = transcribe_video_to_text_enhanced(video_path)
+            #     with st.spinner("🎬 Extracting audio from video..."):
+            #         audio_path = transcribe_video_to_text_enhanced(video_path)
                 
                 if audio_path:
                     # Choose transcription engine
@@ -829,10 +899,15 @@ with col_main:
                         st.session_state.show_upload_modal = False
                         
                         # Cleanup
-                        if os.path.exists(audio_path):
-                            os.remove(audio_path)
-                        if os.path.exists(video_path):
-                            os.remove(video_path)
+                        # if os.path.exists(audio_path):
+                        #     os.remove(audio_path)
+                        # if os.path.exists(video_path):
+                        #     os.remove(video_path)
+                        # Cleanup
+                          if os.path.exists(audio_path):
+                              os.remove(audio_path)
+                          if os.path.exists(file_path):
+                              os.remove(file_path)
                         
                         st.success("✅ Transcription saved successfully!")
                         st.rerun()
@@ -1031,6 +1106,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
