@@ -236,41 +236,70 @@ def get_dejavu_font():
             f.write(base64.b64decode(DEJAVU_FONT_BASE64))
 
     return font_path
-    
-import ffmpeg
+
 
 def transcribe_video_to_text_enhanced(file_path):
-    """Extract audio from video OR process audio file directly (no MoviePy needed)"""
+    """Extract audio or process audio-only file using pydub without ffmpeg."""
     try:
-        audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
         file_ext = os.path.splitext(file_path)[1].lower()
 
-        audio_path = "temp_audio.wav"
+        # Audio types supported by Pydub
+        audio_types = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
 
-        if file_ext in audio_extensions:
-            # Directly convert audio file to WAV
-            (
-                ffmpeg
-                .input(file_path)
-                .output(audio_path, ac=1, ar=16000)
-                .overwrite_output()
-                .run(quiet=True)
-            )
+        # If it's audio → open directly
+        if file_ext in audio_types:
+            audio = AudioSegment.from_file(file_path)
+
+        # If it's video → still works with pydub (pure python)
         else:
-            # Extract audio from video using ffmpeg
-            (
-                ffmpeg
-                .input(file_path)
-                .output(audio_path, ac=1, ar=16000)
-                .overwrite_output()
-                .run(quiet=True)
-            )
+            audio = AudioSegment.from_file(file_path)
+
+        # Convert to 16KHz mono WAV
+        audio_path = "temp_audio.wav"
+        audio = audio.set_frame_rate(16000).set_channels(1)
+        audio.export(audio_path, format="wav")
 
         return audio_path
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
         return None
+
+    
+# import ffmpeg
+
+# def transcribe_video_to_text_enhanced(file_path):
+#     """Extract audio from video OR process audio file directly (no MoviePy needed)"""
+#     try:
+#         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+#         file_ext = os.path.splitext(file_path)[1].lower()
+
+#         audio_path = "temp_audio.wav"
+
+#         if file_ext in audio_extensions:
+#             # Directly convert audio file to WAV
+#             (
+#                 ffmpeg
+#                 .input(file_path)
+#                 .output(audio_path, ac=1, ar=16000)
+#                 .overwrite_output()
+#                 .run(quiet=True)
+#             )
+#         else:
+#             # Extract audio from video using ffmpeg
+#             (
+#                 ffmpeg
+#                 .input(file_path)
+#                 .output(audio_path, ac=1, ar=16000)
+#                 .overwrite_output()
+#                 .run(quiet=True)
+#             )
+
+#         return audio_path
+
+#     except Exception as e:
+#         st.error(f"Error processing file: {e}")
+#         return None
 
 # def transcribe_video_to_text_enhanced(video_path):
 #     """Extract audio from video OR process audio file directly"""
@@ -1157,6 +1186,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
