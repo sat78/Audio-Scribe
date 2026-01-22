@@ -13,9 +13,7 @@ import speech_recognition as sr
 import json
 from pathlib import Path
 import io
-import ffmpeg
 
-ffmpeg.input(file_path).output("temp_audio.wav", ac=1, ar=16000).run()
 
 try:
     from docx import Document
@@ -1159,6 +1157,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
