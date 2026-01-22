@@ -237,7 +237,7 @@ def get_dejavu_font():
     return font_path
     
 
-  def transcribe_video_to_text_enhanced(video_path):
+def transcribe_video_to_text_enhanced(video_path):
     """Extract audio from video OR process audio file directly"""
     try:
         # Check if it's already an audio file
@@ -1106,6 +1106,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
