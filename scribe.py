@@ -239,47 +239,81 @@ def get_dejavu_font():
 
     return font_path
     
+import ffmpeg
 
-def transcribe_video_to_text_enhanced(video_path):
-    """Extract audio from video OR process audio file directly"""
+def transcribe_video_to_text_enhanced(file_path):
+    """Extract audio from video OR process audio file directly (no MoviePy needed)"""
     try:
-        # Check if it's already an audio file
         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-        file_ext = os.path.splitext(video_path)[1].lower()
-        
+        file_ext = os.path.splitext(file_path)[1].lower()
+
+        audio_path = "temp_audio.wav"
+
         if file_ext in audio_extensions:
-            # It's an audio file, convert to WAV format
-            st.info(f"📢 Processing audio file: {os.path.basename(video_path)}")
-            audio = AudioSegment.from_file(video_path)
-            audio_path = "temp_audio.wav"
-            audio.export(
-                audio_path,
-                format="wav",
-                parameters=["-ar", "16000", "-ac", "1"]
+            # Directly convert audio file to WAV
+            (
+                ffmpeg
+                .input(file_path)
+                .output(audio_path, ac=1, ar=16000)
+                .overwrite_output()
+                .run(quiet=True)
             )
-            return audio_path
         else:
-            # It's a video file, extract audio
-            st.info(f"🎬 Extracting audio from video: {os.path.basename(video_path)}")
-            video_clip = VideoFileClip(video_path)
-            audio_clip = video_clip.audio
-            audio_path = "temp_audio.wav"
-            
-            audio_clip.write_audiofile(
-                audio_path,
-                fps=16000,
-                nbytes=2,
-                codec='pcm_s16le',
-                logger=None
+            # Extract audio from video using ffmpeg
+            (
+                ffmpeg
+                .input(file_path)
+                .output(audio_path, ac=1, ar=16000)
+                .overwrite_output()
+                .run(quiet=True)
             )
-            
-            audio_clip.close()
-            video_clip.close()
-            
-            return audio_path
+
+        return audio_path
+
     except Exception as e:
         st.error(f"Error processing file: {e}")
         return None
+
+# def transcribe_video_to_text_enhanced(video_path):
+#     """Extract audio from video OR process audio file directly"""
+#     try:
+#         # Check if it's already an audio file
+#         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+#         file_ext = os.path.splitext(video_path)[1].lower()
+        
+#         if file_ext in audio_extensions:
+#             # It's an audio file, convert to WAV format
+#             st.info(f"📢 Processing audio file: {os.path.basename(video_path)}")
+#             audio = AudioSegment.from_file(video_path)
+#             audio_path = "temp_audio.wav"
+#             audio.export(
+#                 audio_path,
+#                 format="wav",
+#                 parameters=["-ar", "16000", "-ac", "1"]
+#             )
+#             return audio_path
+#         else:
+#             # It's a video file, extract audio
+#             st.info(f"🎬 Extracting audio from video: {os.path.basename(video_path)}")
+#             video_clip = VideoFileClip(video_path)
+#             audio_clip = video_clip.audio
+#             audio_path = "temp_audio.wav"
+            
+#             audio_clip.write_audiofile(
+#                 audio_path,
+#                 fps=16000,
+#                 nbytes=2,
+#                 codec='pcm_s16le',
+#                 logger=None
+#             )
+            
+#             audio_clip.close()
+#             video_clip.close()
+            
+#             return audio_path
+#     except Exception as e:
+#         st.error(f"Error processing file: {e}")
+#         return None
 # def transcribe_video_to_text_enhanced(video_path):
 #     """Extract audio from video with optimized settings"""
 #     try:
@@ -1125,6 +1159,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
