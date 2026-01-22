@@ -1,5 +1,5 @@
 streamlit
-ffmpeg-python
+
 moviepy
 moviepy
 pydub
@@ -8,5 +8,6 @@ python-docx
 fpdf
 assemblyai
 google-generativeai
+
 
 
