@@ -910,15 +910,15 @@ with col_main:
             #           file_path = tmp_file.name
     
     # Detect file type
-            file_ext = os.path.splitext(uploaded_file.name)[1].lower()
-            audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+            # file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+            # audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
     
-            if file_ext in audio_extensions:
-                with st.spinner("🎵 Processing audio file..."):
-                    audio_path = transcribe_video_to_text_enhanced(file_path)
-            else:
-                with st.spinner("🎬 Extracting audio from video..."):
-                    audio_path = transcribe_video_to_text_enhanced(file_path)
+            # if file_ext in audio_extensions:
+            #     with st.spinner("🎵 Processing audio file..."):
+            #         audio_path = transcribe_video_to_text_enhanced(file_path)
+            # else:
+            #     with st.spinner("🎬 Extracting audio from video..."):
+            #         audio_path = transcribe_video_to_text_enhanced(file_path)
             if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
                 # Save uploaded file
                 with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
@@ -1188,6 +1188,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
