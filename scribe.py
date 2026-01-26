@@ -982,15 +982,15 @@ with col_main:
                             st.session_state.show_upload_modal = False
                         
                         # Cleanup
-                        # if os.path.exists(audio_path):
-                        #     os.remove(audio_path)
-                        # if os.path.exists(video_path):
-                        #     os.remove(video_path)
-                        # Cleanup
-                            if os.path.exists(audio_path):
-                                os.remove(audio_path)
-                            if os.path.exists(file_path):
-                                os.remove(file_path)
+                        if os.path.exists(audio_path):
+                            os.remove(audio_path)
+                        if os.path.exists(video_path):
+                            os.remove(video_path)
+                        # # Cleanup
+                        #     if os.path.exists(audio_path):
+                        #         os.remove(audio_path)
+                        #     if os.path.exists(file_path):
+                        #         os.remove(file_path)
                         
                             st.success("✅ Transcription saved successfully!")
                             st.rerun()
@@ -1189,6 +1189,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
