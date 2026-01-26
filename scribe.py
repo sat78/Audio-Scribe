@@ -11,6 +11,9 @@ from datetime import datetime
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
 from pydub import AudioSegment
+from pydub import AudioSegment
+AudioSegment.converter = "/usr/bin/ffmpeg"
+AudioSegment.ffprobe = "/usr/bin/ffprobe"
 from pydub.utils import make_chunks
 import speech_recognition as sr
 import json
@@ -1248,6 +1251,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
