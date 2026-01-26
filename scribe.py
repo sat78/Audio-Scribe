@@ -5,8 +5,8 @@ st.markdown("<style>.stFileUploader input[type=file] {max-file-size: 500MB;}</st
 import os, base64
 import tempfile
 from datetime import datetime
-from moviepy.editor import VideoFileClip
-import moviepy.editor as mp
+# from moviepy.editor import VideoFileClip
+# import moviepy.editor as mp
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
 from pydub import AudioSegment
@@ -1188,6 +1188,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
