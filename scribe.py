@@ -903,11 +903,11 @@ with col_main:
             #             with st.spinner("🎬 Extracting audio from video..."):
             #                 audio_path = transcribe_video_to_text_enhanced(file_path)
             
-            if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
-                  # Save uploaded file
-                  with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-                      tmp_file.write(uploaded_file.getvalue())
-                      file_path = tmp_file.name
+            # if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
+            #       # Save uploaded file
+            #       with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
+            #           tmp_file.write(uploaded_file.getvalue())
+            #           file_path = tmp_file.name
     
     # Detect file type
             file_ext = os.path.splitext(uploaded_file.name)[1].lower()
@@ -1188,6 +1188,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
