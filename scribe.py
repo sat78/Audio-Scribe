@@ -885,47 +885,47 @@ with col_main:
                 )
             
             # Transcribe button
-            if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
-                # Save uploaded file
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-                        tmp_file.write(uploaded_file.getvalue())
-                        file_path = tmp_file.name
-                
-                # Detect file type (NOW INSIDE THE BUTTON CLICK)
-                    file_ext = os.path.splitext(uploaded_file.name)[1].lower()
-                    audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-                
-                    if file_ext in audio_extensions:
-                        with st.spinner("🎵 Processing audio file..."):
-                            audio_path = transcribe_video_to_text_enhanced(file_path)
-                    else:
-                        with st.spinner("🎬 Extracting audio from video..."):
-                            audio_path = transcribe_video_to_text_enhanced(file_path)
-            
-            # if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
-            #       # Save uploaded file
-            #       with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-            #           tmp_file.write(uploaded_file.getvalue())
-            #           file_path = tmp_file.name
-    
-    # # Detect file type
-    #         file_ext = os.path.splitext(uploaded_file.name)[1].lower()
-    #         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-    
-    #         if file_ext in audio_extensions:
-    #             with st.spinner("🎵 Processing audio file..."):
-    #                 audio_path = transcribe_video_to_text_enhanced(file_path)
-    #         else:
-    #             with st.spinner("🎬 Extracting audio from video..."):
-    #                 audio_path = transcribe_video_to_text_enhanced(file_path)
             # if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
             #     # Save uploaded file
-            #     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-            #         tmp_file.write(uploaded_file.getvalue())
-            #         video_path = tmp_file.name
+            #         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
+            #             tmp_file.write(uploaded_file.getvalue())
+            #             file_path = tmp_file.name
                 
-            #     with st.spinner("🎬 Extracting audio from video..."):
-            #         audio_path = transcribe_video_to_text_enhanced(video_path)
+            #     # Detect file type (NOW INSIDE THE BUTTON CLICK)
+            #         file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+            #         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+                
+            #         if file_ext in audio_extensions:
+            #             with st.spinner("🎵 Processing audio file..."):
+            #                 audio_path = transcribe_video_to_text_enhanced(file_path)
+            #         else:
+            #             with st.spinner("🎬 Extracting audio from video..."):
+            #                 audio_path = transcribe_video_to_text_enhanced(file_path)
+            
+            if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
+                  # Save uploaded file
+                  with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
+                      tmp_file.write(uploaded_file.getvalue())
+                      file_path = tmp_file.name
+    
+    # Detect file type
+            file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+            audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+    
+            if file_ext in audio_extensions:
+                with st.spinner("🎵 Processing audio file..."):
+                    audio_path = transcribe_video_to_text_enhanced(file_path)
+            else:
+                with st.spinner("🎬 Extracting audio from video..."):
+                    audio_path = transcribe_video_to_text_enhanced(file_path)
+            if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
+                # Save uploaded file
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
+                    tmp_file.write(uploaded_file.getvalue())
+                    video_path = tmp_file.name
+                
+                with st.spinner("🎬 Extracting audio from video..."):
+                    audio_path = transcribe_video_to_text_enhanced(video_path)
                 
                     if audio_path:
                     # Choose transcription engine
@@ -1187,6 +1187,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
