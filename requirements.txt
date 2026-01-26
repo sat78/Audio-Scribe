@@ -1,11 +1,13 @@
 streamlit
 moviepy
 pydub
+FFmpeg
 speechrecognition
 python-docx
 fpdf
 assemblyai
 google-generativeai
+
 
 
 
