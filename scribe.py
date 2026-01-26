@@ -1,5 +1,6 @@
 import streamlit as st
 
+
 st.session_state["MAX_UPLOAD_SIZE_MB"] = 500
 st.markdown("<style>.stFileUploader input[type=file] {max-file-size: 500MB;}</style>", unsafe_allow_html=True)
 import os, base64
@@ -343,29 +344,29 @@ def transcribe_video_to_text_enhanced(video_path):
     except Exception as e:
         st.error(f"Error processing file: {e}")
         return None
-def transcribe_video_to_text_enhanced(video_path):
-    """Extract audio from video with optimized settings"""
-    try:
-        video_clip = VideoFileClip(video_path)
-        audio_clip = video_clip.audio
-        audio_path = "temp_audio.wav"
+# def transcribe_video_to_text_enhanced(video_path):
+#     """Extract audio from video with optimized settings"""
+#     try:
+#         video_clip = VideoFileClip(video_path)
+#         audio_clip = video_clip.audio
+#         audio_path = "temp_audio.wav"
         
-        audio_clip.write_audiofile(
-            audio_path,
-            fps=16000,
-            nbytes=2,
-            codec='pcm_s16le',
-            logger=None
+#         audio_clip.write_audiofile(
+#             audio_path,
+#             fps=16000,
+#             nbytes=2,
+#             codec='pcm_s16le',
+#             logger=None
             
-        )
+#         )
         
-        audio_clip.close()
-        video_clip.close()
+#         audio_clip.close()
+#         video_clip.close()
         
-        return audio_path
-    except Exception as e:
-        st.error(f"Error extracting audio: {e}")
-        return None
+#         return audio_path
+#     except Exception as e:
+#         st.error(f"Error extracting audio: {e}")
+#         return None
 
 def transcribe_with_assemblyai(audio_path, show_timestamps=False):
     """Super fast transcription using AssemblyAI"""
@@ -1188,6 +1189,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
