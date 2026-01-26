@@ -5,9 +5,9 @@ st.markdown("<style>.stFileUploader input[type=file] {max-file-size: 500MB;}</st
 import os, base64
 import tempfile
 from datetime import datetime
-#from moviepy.editor import VideoFileClip
-#import moviepy.editor as mp
-#from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.editor import VideoFileClip
+import moviepy.editor as mp
+from moviepy.video.io.VideoFileClip import VideoFileClip
 from pydub import AudioSegment
 from pydub.utils import make_chunks
 import speech_recognition as sr
@@ -239,32 +239,32 @@ def get_dejavu_font():
     return font_path
 
 
-def transcribe_video_to_text_enhanced(file_path):
-    """Extract audio or process audio-only file using pydub without ffmpeg."""
-    try:
-        file_ext = os.path.splitext(file_path)[1].lower()
+# def transcribe_video_to_text_enhanced(file_path):
+#     """Extract audio or process audio-only file using pydub without ffmpeg."""
+#     try:
+#         file_ext = os.path.splitext(file_path)[1].lower()
 
-        # Audio types supported by Pydub
-        audio_types = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+#         # Audio types supported by Pydub
+#         audio_types = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
 
-        # If it's audio → open directly
-        if file_ext in audio_types:
-            audio = AudioSegment.from_file(file_path)
+#         # If it's audio → open directly
+#         if file_ext in audio_types:
+#             audio = AudioSegment.from_file(file_path)
 
-        # If it's video → still works with pydub (pure python)
-        else:
-            audio = AudioSegment.from_file(file_path)
+#         # If it's video → still works with pydub (pure python)
+#         else:
+#             audio = AudioSegment.from_file(file_path)
 
-        # Convert to 16KHz mono WAV
-        audio_path = "temp_audio.wav"
-        audio = audio.set_frame_rate(16000).set_channels(1)
-        audio.export(audio_path, format="wav")
+#         # Convert to 16KHz mono WAV
+#         audio_path = "temp_audio.wav"
+#         audio = audio.set_frame_rate(16000).set_channels(1)
+#         audio.export(audio_path, format="wav")
 
-        return audio_path
+#         return audio_path
 
-    except Exception as e:
-        st.error(f"Error processing file: {e}")
-        return None
+#     except Exception as e:
+#         st.error(f"Error processing file: {e}")
+#         return None
 
     
 # import ffmpeg
@@ -302,69 +302,69 @@ def transcribe_video_to_text_enhanced(file_path):
 #         st.error(f"Error processing file: {e}")
 #         return None
 
-# def transcribe_video_to_text_enhanced(video_path):
-#     """Extract audio from video OR process audio file directly"""
-#     try:
-#         # Check if it's already an audio file
-#         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-#         file_ext = os.path.splitext(video_path)[1].lower()
+def transcribe_video_to_text_enhanced(video_path):
+    """Extract audio from video OR process audio file directly"""
+    try:
+        # Check if it's already an audio file
+        audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+        file_ext = os.path.splitext(video_path)[1].lower()
         
-#         if file_ext in audio_extensions:
-#             # It's an audio file, convert to WAV format
-#             st.info(f"📢 Processing audio file: {os.path.basename(video_path)}")
-#             audio = AudioSegment.from_file(video_path)
-#             audio_path = "temp_audio.wav"
-#             audio.export(
-#                 audio_path,
-#                 format="wav",
-#                 parameters=["-ar", "16000", "-ac", "1"]
-#             )
-#             return audio_path
-#         else:
-#             # It's a video file, extract audio
-#             st.info(f"🎬 Extracting audio from video: {os.path.basename(video_path)}")
-#             video_clip = VideoFileClip(video_path)
-#             audio_clip = video_clip.audio
-#             audio_path = "temp_audio.wav"
+        if file_ext in audio_extensions:
+            # It's an audio file, convert to WAV format
+            st.info(f"📢 Processing audio file: {os.path.basename(video_path)}")
+            audio = AudioSegment.from_file(video_path)
+            audio_path = "temp_audio.wav"
+            audio.export(
+                audio_path,
+                format="wav",
+                parameters=["-ar", "16000", "-ac", "1"]
+            )
+            return audio_path
+        else:
+            # It's a video file, extract audio
+            st.info(f"🎬 Extracting audio from video: {os.path.basename(video_path)}")
+            video_clip = VideoFileClip(video_path)
+            audio_clip = video_clip.audio
+            audio_path = "temp_audio.wav"
             
-#             audio_clip.write_audiofile(
-#                 audio_path,
-#                 fps=16000,
-#                 nbytes=2,
-#                 codec='pcm_s16le',
-#                 logger=None
-#             )
+            audio_clip.write_audiofile(
+                audio_path,
+                fps=16000,
+                nbytes=2,
+                codec='pcm_s16le',
+                logger=None
+            )
             
-#             audio_clip.close()
-#             video_clip.close()
+            audio_clip.close()
+            video_clip.close()
             
-#             return audio_path
-#     except Exception as e:
-#         st.error(f"Error processing file: {e}")
-#         return None
-# def transcribe_video_to_text_enhanced(video_path):
-#     """Extract audio from video with optimized settings"""
-#     try:
-#         video_clip = VideoFileClip(video_path)
-#         audio_clip = video_clip.audio
-#         audio_path = "temp_audio.wav"
+            return audio_path
+    except Exception as e:
+        st.error(f"Error processing file: {e}")
+        return None
+def transcribe_video_to_text_enhanced(video_path):
+    """Extract audio from video with optimized settings"""
+    try:
+        video_clip = VideoFileClip(video_path)
+        audio_clip = video_clip.audio
+        audio_path = "temp_audio.wav"
         
-#         audio_clip.write_audiofile(
-#             audio_path,
-#             fps=16000,
-#             nbytes=2,
-#             codec='pcm_s16le',
-#             logger=None
+        audio_clip.write_audiofile(
+            audio_path,
+            fps=16000,
+            nbytes=2,
+            codec='pcm_s16le',
+            logger=None
             
-#         )
+        )
         
-#         audio_clip.close()
-#         video_clip.close()
+        audio_clip.close()
+        video_clip.close()
         
-#         return audio_path
-#     except Exception as e:
-#         st.error(f"Error extracting audio: {e}")
-#         return None
+        return audio_path
+    except Exception as e:
+        st.error(f"Error extracting audio: {e}")
+        return None
 
 def transcribe_with_assemblyai(audio_path, show_timestamps=False):
     """Super fast transcription using AssemblyAI"""
@@ -828,31 +828,31 @@ with col_main:
             
             # File uploader
             st.markdown('<div class="drag-drop-area">', unsafe_allow_html=True)
-            uploaded_file = st.file_uploader(
-                "Drag and drop file here\nLimit 500MB per file • Audio & Video Files Supported",
-                type=['mp3', 'mp4', 'm4a', 'mov', 'aac', 'wav', 'ogg', 'opus', 'mpeg', 'wma', 'wmv', 'mpg', 'mpeg4', 'flac', 'webm', 'avi'],
-                label_visibility="collapsed",
-                accept_multiple_files=False,
-                key="file_uploader",
-                help="File must be 500MB or smaller."
-            )
-            if not uploaded_file:
-                st.markdown("**🎵 Audio Files:** MP3, WAV, M4A, AAC, OGG, OPUS, WMA, FLAC")
-                st.markdown("**🎬 Video Files:** MP4, MOV, MPEG, WMV, MPG, MPEG4, WEBM, AVI")
-                st.markdown("— OR —")
-                st.markdown("**BROWSE FILES**")
             # uploaded_file = st.file_uploader(
-            #     "Drag and drop file here\nLimit 500MB per file • MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, MPEG, WMA, WMV, MPG, MPEG4",
-            #     type=['mp3', 'mp4', 'm4a', 'mov', 'aac', 'wav', 'ogg', 'opus', 'mpeg', 'wma', 'wmv', 'mpg', 'mpeg4'],
+            #     "Drag and drop file here\nLimit 500MB per file • Audio & Video Files Supported",
+            #     type=['mp3', 'mp4', 'm4a', 'mov', 'aac', 'wav', 'ogg', 'opus', 'mpeg', 'wma', 'wmv', 'mpg', 'mpeg4', 'flac', 'webm', 'avi'],
             #     label_visibility="collapsed",
             #     accept_multiple_files=False,
             #     key="file_uploader",
             #     help="File must be 500MB or smaller."
             # )
             # if not uploaded_file:
-            #     st.markdown("**MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, MPEG, WMA, WMV, MPG, MPEG4**")
+            #     st.markdown("**🎵 Audio Files:** MP3, WAV, M4A, AAC, OGG, OPUS, WMA, FLAC")
+            #     st.markdown("**🎬 Video Files:** MP4, MOV, MPEG, WMV, MPG, MPEG4, WEBM, AVI")
             #     st.markdown("— OR —")
             #     st.markdown("**BROWSE FILES**")
+            uploaded_file = st.file_uploader(
+                "Drag and drop file here\nLimit 500MB per file • MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, MPEG, WMA, WMV, MPG, MPEG4",
+                type=['mp3', 'mp4', 'm4a', 'mov', 'aac', 'wav', 'ogg', 'opus', 'mpeg', 'wma', 'wmv', 'mpg', 'mpeg4'],
+                label_visibility="collapsed",
+                accept_multiple_files=False,
+                key="file_uploader",
+                help="File must be 500MB or smaller."
+            )
+            if not uploaded_file:
+                st.markdown("**MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, MPEG, WMA, WMV, MPG, MPEG4**")
+                st.markdown("— OR —")
+                st.markdown("**BROWSE FILES**")
             st.markdown('</div>', unsafe_allow_html=True)
             
             # Language selection
@@ -1187,6 +1187,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
