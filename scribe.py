@@ -369,38 +369,60 @@ def get_dejavu_font():
 #         return None
 
 def transcribe_video_to_text_enhanced(file_path):
-    """Extract audio from video OR process audio file directly - OPTIMIZED"""
+    """Extract audio from video OR process audio file directly"""
     try:
-        # Check file extension
         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
         file_ext = os.path.splitext(file_path)[1].lower()
         
         audio_path = "temp_audio.wav"
         
         if file_ext in audio_extensions:
-            # ✅ It's an audio file - use pydub (NO MoviePy needed!)
+            # ✅ Audio file - Direct processing with pydub
             st.info(f"🎵 Processing audio file: {os.path.basename(file_path)}")
-            audio = AudioSegment.from_file(file_path)
-            audio = audio.set_frame_rate(16000).set_channels(1)
-            audio.export(audio_path, format="wav")
-            return audio_path
+            
+            try:
+                # Try with pydub (requires ffmpeg)
+                audio = AudioSegment.from_file(file_path)
+                audio = audio.set_frame_rate(16000).set_channels(1)
+                audio.export(audio_path, format="wav")
+                return audio_path
+                
+            except FileNotFoundError as e:
+                if 'ffprobe' in str(e) or 'ffmpeg' in str(e):
+                    st.error("❌ FFmpeg is not installed!")
+                    st.error("Please install FFmpeg:")
+                    st.code("Windows: Download from https://www.gyan.dev/ffmpeg/builds/")
+                    st.code("Linux: sudo apt install ffmpeg")
+                    st.code("macOS: brew install ffmpeg")
+                    return None
+                raise
+                
         else:
-            # ✅ It's a video file - use MoviePy
+            # ✅ Video file - Extract audio with MoviePy
             st.info(f"🎬 Extracting audio from video: {os.path.basename(file_path)}")
-            video_clip = VideoFileClip(file_path)
-            audio_clip = video_clip.audio
             
-            audio_clip.write_audiofile(
-                audio_path,
-                fps=16000,
-                nbytes=2,
-                codec='pcm_s16le',
-                logger=None
-            )
-            
-            audio_clip.close()
-            video_clip.close()
-            return audio_path
+            try:
+                video_clip = VideoFileClip(file_path)
+                audio_clip = video_clip.audio
+                
+                audio_clip.write_audiofile(
+                    audio_path,
+                    fps=16000,
+                    nbytes=2,
+                    codec='pcm_s16le',
+                    logger=None
+                )
+                
+                audio_clip.close()
+                video_clip.close()
+                return audio_path
+                
+            except Exception as e:
+                if 'ffmpeg' in str(e).lower():
+                    st.error("❌ FFmpeg is required for video processing!")
+                    st.error("Please install FFmpeg (see instructions above)")
+                    return None
+                raise
             
     except Exception as e:
         st.error(f"Error processing file: {e}")
@@ -1226,6 +1248,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
