@@ -344,30 +344,67 @@ def get_dejavu_font():
 #     except Exception as e:
 #         st.error(f"Error processing file: {e}")
 #         return None
-def transcribe_video_to_text_enhanced(video_path):
-    """Extract audio from video with optimized settings"""
+# def transcribe_video_to_text_enhanced(video_path):
+#     """Extract audio from video with optimized settings"""
+#     try:
+#         video_clip = VideoFileClip(video_path)
+#         audio_clip = video_clip.audio
+#         audio_path = "temp_audio.wav"
+        
+#         audio_clip.write_audiofile(
+#             audio_path,
+#             fps=16000,
+#             nbytes=2,
+#             codec='pcm_s16le',
+#             logger=None
+            
+#         )
+        
+#         audio_clip.close()
+#         video_clip.close()
+        
+#         return audio_path
+#     except Exception as e:
+#         st.error(f"Error extracting audio: {e}")
+#         return None
+
+def transcribe_video_to_text_enhanced(file_path):
+    """Extract audio from video OR process audio file directly - OPTIMIZED"""
     try:
-        video_clip = VideoFileClip(video_path)
-        audio_clip = video_clip.audio
+        # Check file extension
+        audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
+        file_ext = os.path.splitext(file_path)[1].lower()
+        
         audio_path = "temp_audio.wav"
         
-        audio_clip.write_audiofile(
-            audio_path,
-            fps=16000,
-            nbytes=2,
-            codec='pcm_s16le',
-            logger=None
+        if file_ext in audio_extensions:
+            # ✅ It's an audio file - use pydub (NO MoviePy needed!)
+            st.info(f"🎵 Processing audio file: {os.path.basename(file_path)}")
+            audio = AudioSegment.from_file(file_path)
+            audio = audio.set_frame_rate(16000).set_channels(1)
+            audio.export(audio_path, format="wav")
+            return audio_path
+        else:
+            # ✅ It's a video file - use MoviePy
+            st.info(f"🎬 Extracting audio from video: {os.path.basename(file_path)}")
+            video_clip = VideoFileClip(file_path)
+            audio_clip = video_clip.audio
             
-        )
-        
-        audio_clip.close()
-        video_clip.close()
-        
-        return audio_path
+            audio_clip.write_audiofile(
+                audio_path,
+                fps=16000,
+                nbytes=2,
+                codec='pcm_s16le',
+                logger=None
+            )
+            
+            audio_clip.close()
+            video_clip.close()
+            return audio_path
+            
     except Exception as e:
-        st.error(f"Error extracting audio: {e}")
+        st.error(f"Error processing file: {e}")
         return None
-
 def transcribe_with_assemblyai(audio_path, show_timestamps=False):
     """Super fast transcription using AssemblyAI"""
     if not ASSEMBLYAI_AVAILABLE:
@@ -1189,6 +1226,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
