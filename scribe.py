@@ -803,8 +803,8 @@ with col_sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("🔄 GO UNLIMITED", use_container_width=True):
-        st.info("Upgrade to unlimited transcriptions!")
+    # if st.button("🔄 GO UNLIMITED", use_container_width=True):
+    #     st.info("Upgrade to unlimited transcriptions!")
     
     st.markdown("---")
     st.markdown("### 📁 Shortcuts")
@@ -1251,6 +1251,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
