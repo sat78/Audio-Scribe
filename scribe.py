@@ -204,6 +204,14 @@ if 'current_transcription' not in st.session_state:
     st.session_state.current_transcription = None
 if 'show_upload_modal' not in st.session_state:
     st.session_state.show_upload_modal = False
+if 'show_sow_generator' not in st.session_state:
+    st.session_state.show_sow_generator = False
+if 'show_mom_generator' not in st.session_state:
+    st.session_state.show_mom_generator = False
+if 'generated_sow' not in st.session_state:
+    st.session_state.generated_sow = None
+if 'generated_mom' not in st.session_state:
+    st.session_state.generated_mom = None
 if 'show_search' not in st.session_state:
     st.session_state.show_search = False
 if 'show_recent_files' not in st.session_state:
@@ -1813,6 +1821,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
