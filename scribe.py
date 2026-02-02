@@ -751,6 +751,279 @@ Please maintain the exact heading format with emojis."""
                 del st.session_state.gemini_api_key
         
         return None
+    # ==================== SOW & MOM GENERATION FUNCTIONS ====================
+
+def generate_sow_from_transcription(transcription_text, api_key):
+    """Generate Statement of Work from transcription using Gemini AI"""
+    if not GEMINI_AVAILABLE:
+        st.error("Gemini not installed. Install it with: pip install google-generativeai")
+        return None
+    
+    try:
+        genai.configure(api_key=api_key)
+        
+        with st.spinner("🤖 Generating Statement of Work..."):
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            
+            prompt = f"""You are an expert RPA consultant. Based on the following meeting/process transcription, create a professional Statement of Work (SOW) document.
+
+TRANSCRIPTION:
+{transcription_text}
+
+OUTPUT FORMAT (REQUIRED) — SOW:
+
+Process 1: <Process Name>
+
+This process automates <one- to two-line description of what is automated and the business outcome>.
+
+- Trigger: <one sentence stating the initiating event. Keep the "Trigger:" label EXACTLY>
+
+- Data Extraction: <what data/files are ingested, where from, and what fields are extracted. If not about files, state what data is captured from forms/APIs/voice. Keep the "Data Extraction:" label EXACTLY>
+
+- <System Entry Label>: <describe the main system interaction, e.g., "SAP Entry", "CRM Entry", "Core Banking Entry", etc. If unclear, use "System Entry". Explain the navigation/location and the key fields/actions performed.>
+
+- System Update: <what the system updates/creates (records, statuses), validations, approvals, saves, or notifications.>
+
+- Outcome: <final state and how downstream business logic or policies use these values; mention accuracy/consistency benefits if stated.>
+
+Effort Table
+
+Activity | Discover | Design | Develop | Debug | Deploy | Drive | Documentation | Project Management | Total
+<Process Short Name> | <int 1–3> | <int 1–3> | <int 3–8> | <int 1–3> | <int 1–3> | <int 1–2> | <int 1–2> | <int 1–2> | <sum>
+
+EFFORT RULES:
+- All values are whole numbers. Total must equal the sum.
+- Use typical band 12–20 unless the transcript clearly indicates simpler or more complex work.
+- If uncertainty is high, bias Discover/Design upward by +1 and note TBDs in prose above (not as a separate section).
+
+STYLE RULES:
+- Keep sentences short, neutral, and factual.
+- Use the exact bullets and bold labels shown above (do not add new sections).
+- Do not invent specifics; use "TBD" where details are missing.
+- Maintain the same capitalization for headings as shown.
+
+Extract all relevant information from the transcription and create the SOW following this EXACT format."""
+
+            response = model.generate_content(prompt)
+            return response.text
+            
+    except Exception as e:
+        st.error(f"SOW Generation Error: {e}")
+        return None
+
+def generate_mom_from_transcription(transcription_text, api_key):
+    """Generate Minutes of Meeting from transcription using Gemini AI"""
+    if not GEMINI_AVAILABLE:
+        st.error("Gemini not installed. Install it with: pip install google-generativeai")
+        return None
+    
+    try:
+        genai.configure(api_key=api_key)
+        
+        with st.spinner("🤖 Generating Minutes of Meeting..."):
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            
+            prompt = f"""You are an expert meeting coordinator. Based on the following meeting transcription, create professional Minutes of Meeting (MoM).
+
+TRANSCRIPTION:
+{transcription_text}
+
+OUTPUT FORMAT (REQUIRED) — Minutes of Meeting:
+
+Meeting Details:
+- Meeting Title: <TBD or inferred from transcript>
+- Date: <Date of meeting or TBD>
+- Time: <Time or TBD>
+- Mode: <In‑person / Online / Call / TBD>
+- Participants: <List of names or roles mentioned; use TBD if unclear>
+
+Agenda:
+- <Agenda item 1>
+- <Agenda item 2>
+- <Add only what is explicitly discussed>
+
+Discussion Summary:
+- <Key discussion point 1 written factually>
+- <Key discussion point 2>
+- <Avoid opinions or assumptions>
+
+Decisions Made:
+- <Decision 1>
+- <Decision 2>
+- Write "None" if no decisions were made.
+
+Action Items:
+Action | Owner | Due Date | Status
+<Description> | <Name/Role or TBD> | <Date or TBD> | Open
+
+Risks / Dependencies (if discussed):
+- <Risk or dependency mentioned>
+- Write "None" if not discussed.
+
+Next Steps:
+- <Immediate next step agreed>
+- <Follow‑up meeting or deliverable if mentioned>
+
+Next Meeting:
+- Date: <Date or TBD>
+- Time: <Time or TBD>
+- Purpose: <Purpose or TBD>
+
+STYLE & FORMATTING RULES:
+- Use bullet points only (no paragraphs).
+- Keep sentences short and precise.
+- Do not add sections beyond those listed.
+- Maintain professional SOW/MoM tone.
+- If multiple meetings are discussed, create ONE MoM for the main meeting only.
+
+Extract all relevant information from the transcription and create the MoM following this EXACT format."""
+
+            response = model.generate_content(prompt)
+            return response.text
+            
+    except Exception as e:
+        st.error(f"MoM Generation Error: {e}")
+        return None
+
+def export_sow_to_docx(sow_text, filename="SOW_Document.docx"):
+    """Export SOW to DOCX format"""
+    if not DOCX_AVAILABLE:
+        return None
+    
+    try:
+        doc = Document()
+        
+        # Title
+        title = doc.add_heading('Scope of Work (SOW)', 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Add date
+        doc.add_paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y')}")
+        doc.add_paragraph()
+        
+        # Parse and format content
+        lines = sow_text.split('\n')
+        in_table = False
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Check if line is a table header
+            if 'Activity |' in line and 'Discover' in line:
+                in_table = True
+                # Create table
+                headers = [h.strip() for h in line.split('|')]
+                table = doc.add_table(rows=1, cols=len(headers))
+                table.style = 'Light Grid Accent 1'
+                
+                # Add headers
+                for i, header in enumerate(headers):
+                    table.rows[0].cells[i].text = header
+                continue
+            
+            # Check if line is table data
+            if in_table and '|' in line:
+                cells_data = [c.strip() for c in line.split('|')]
+                row_cells = table.add_row().cells
+                for i, data in enumerate(cells_data):
+                    if i < len(row_cells):
+                        row_cells[i].text = data
+                in_table = False
+                continue
+            
+            # Process heading
+            if line.startswith('Process ') or line.startswith('Effort Table'):
+                doc.add_heading(line, level=1)
+            elif line.startswith('•'):
+                # Extract bold label if present
+                if ':' in line:
+                    label, content = line.split(':', 1)
+                    p = doc.add_paragraph()
+                    p.add_run(label + ':').bold = True
+                    p.add_run(content)
+                else:
+                    doc.add_paragraph(line, style='List Bullet')
+            else:
+                doc.add_paragraph(line)
+        
+        # Save to BytesIO
+        docx_file = io.BytesIO()
+        doc.save(docx_file)
+        docx_file.seek(0)
+        return docx_file.getvalue()
+        
+    except Exception as e:
+        st.error(f"Error creating SOW DOCX: {e}")
+        return None
+
+def export_mom_to_docx(mom_text, filename="MOM_Document.docx"):
+    """Export MoM to DOCX format"""
+    if not DOCX_AVAILABLE:
+        return None
+    
+    try:
+        doc = Document()
+        
+        # Title
+        title = doc.add_heading('Minutes of Meeting', 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Add generation date
+        doc.add_paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y')}")
+        doc.add_paragraph()
+        
+        # Parse and format content
+        lines = mom_text.split('\n')
+        in_table = False
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Check if line is a table header
+            if 'Action |' in line and 'Owner' in line:
+                in_table = True
+                # Create table
+                headers = [h.strip() for h in line.split('|')]
+                table = doc.add_table(rows=1, cols=len(headers))
+                table.style = 'Light Grid Accent 1'
+                
+                # Add headers
+                for i, header in enumerate(headers):
+                    table.rows[0].cells[i].text = header
+                continue
+            
+            # Check if line is table data
+            if in_table and '|' in line and not line.startswith('Action |'):
+                cells_data = [c.strip() for c in line.split('|')]
+                row_cells = table.add_row().cells
+                for i, data in enumerate(cells_data):
+                    if i < len(row_cells):
+                        row_cells[i].text = data
+                continue
+            elif in_table and '|' not in line:
+                in_table = False
+            
+            # Process headings
+            if line.endswith(':') and not line.startswith('•'):
+                doc.add_heading(line.rstrip(':'), level=2)
+            elif line.startswith('•'):
+                doc.add_paragraph(line, style='List Bullet')
+            else:
+                doc.add_paragraph(line)
+        
+        # Save to BytesIO
+        docx_file = io.BytesIO()
+        doc.save(docx_file)
+        docx_file.seek(0)
+        return docx_file.getvalue()
+        
+    except Exception as e:
+        st.error(f"Error creating MoM DOCX: {e}")
+        return None
 
 def export_to_srt(timestamped_text):
     """Export transcription to SRT subtitle format"""
@@ -1251,6 +1524,7 @@ st.markdown("""
     </div>
 
 """, unsafe_allow_html=True)
+
 
 
 
