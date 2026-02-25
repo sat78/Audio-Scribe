@@ -15,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
+import streamlit as st
+
 
 
 logging.basicConfig(level=logging.INFO)
