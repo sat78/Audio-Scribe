@@ -8,10 +8,7 @@ PyPDF2
 assemblyai
 fastapi
 uvicorn
-basemodel
-optional
-crossmiddleware
-multipart
+python-multipart
 google-generativeai==0.8.2
 langchain-core==0.3.80
 langchain-google-genai==2.0.10
