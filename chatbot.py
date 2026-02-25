@@ -1,6 +1,7 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnableMap
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai as genai
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
