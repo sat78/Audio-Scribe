@@ -7,6 +7,8 @@ python-docx
 fpdf
 assemblyai
 google-generativeai
+langchain
+
 
 
 
