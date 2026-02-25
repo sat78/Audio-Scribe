@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv('./.env', override=True)
-os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")  #✅ Ensure env variable is set in code
+#os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")  #✅ Ensure env variable is set in code
 
 logger.info(f"GOOGLE_API_KEY: {os.getenv('GOOGLE_API_KEY')}")
 llm = ChatGoogleGenerativeAI(
