@@ -20,8 +20,11 @@ from typing import Optional
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv('./.env', override=True)
-#os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")  #✅ Ensure env variable is set in code
+# load_dotenv('./.env', override=True)
+# #os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")  #✅ Ensure env variable is set in code
+
+google_api_key = st.secrets["GOOGLE_API_KEY"]
+genai.configure(api_key=google_api_key)
 
 logger.info(f"GOOGLE_API_KEY: {os.getenv('GOOGLE_API_KEY')}")
 llm = ChatGoogleGenerativeAI(
