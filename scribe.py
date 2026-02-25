@@ -1,24 +1,22 @@
+
 import streamlit as st
-
-
-st.session_state["MAX_UPLOAD_SIZE_MB"] = 500
-st.markdown("<style>.stFileUploader input[type=file] {max-file-size: 500MB;}</style>", unsafe_allow_html=True)
-import os, base64
+import base64
+from pathlib import Path
+import io
+import logging
+from dotenv import load_dotenv
+import os
 import tempfile
 from datetime import datetime
-# from moviepy.editor import VideoFileClip
-# import moviepy.editor as mp
-from moviepy.video.io.VideoFileClip import VideoFileClip
-
+from moviepy import VideoFileClip
 from pydub import AudioSegment
-from pydub import AudioSegment
-AudioSegment.converter = "/usr/bin/ffmpeg"
-AudioSegment.ffprobe = "/usr/bin/ffprobe"
 from pydub.utils import make_chunks
 import speech_recognition as sr
 import json
-from pathlib import Path
-import io
+from chatbot import get_insights_from_video
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import Optional
 
 
 try:
@@ -41,20 +39,16 @@ try:
 except ImportError:
     ASSEMBLYAI_AVAILABLE = False
 
-# try:
-#     from vosk import Model, KaldiRecognizer
-#     import wave
-#     VOSK_AVAILABLE = True
-# except ImportError:
-#     VOSK_AVAILABLE = False
-
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
 
-# Page configuration
+
+# load_dotenv('./.env')
+# logger.info(f"GOOGLE_API_KEY: {os.getenv('GOOGLE_API_KEY')}")
+# Page configuration (MUST be first Streamlit command)
 st.set_page_config(
     page_title="AudioScribe - AI Transcription",
     page_icon="🎬",
@@ -62,142 +56,364 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
-st.markdown("""
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    .main-header {
-        background: linear-gradient(90deg,#009688  0%,#263238  100%);
-        padding: 1rem 2rem;
-        margin: -6rem -6rem 2rem -6rem;
-        color: white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .header-content {
-        display: flex;
-    
-        justify-content: space-between;
-        align-items: center;
-        max-width: 1400px;
-        margin: 0 auto;
-    }
-    
-    .logo-section {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-    
-    .logo-circle {
-        width: 40px;
-        height: 40px;
-        background: white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        color: #009688;
-    }
-    
-    .stApp {
-        background-color: #F5F7FA;
-    }
-    
-    .file-item {
-        background: white;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 0.5rem;
-        border: 1px solid #009688;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .file-item:hover {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        cursor: pointer;
-    }
-    
-    .upload-modal {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    }
-    
-    .drag-drop-area {
-        border: 3px dashed #009688;
-        border-radius: 12px;
-        padding: 3rem;
-        text-align: center;
-        background: #F0F7FF;
-        margin: 1.5rem 0;
-    }
-    
-    .transcript-container {
-        background: white;
-        border-radius: 10px;
-        padding: 2rem;
-        margin-top: 2rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    
-    .timestamp {
-        color: #009688;
-        font-weight: 600;
-        font-size: 0.9em;
-        margin-right: 0.5rem;
-    }
-    
-    .stButton>button {
-        background: #009688 !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 0.75rem 2rem !important;
-        font-weight: 600 !important;
-        transition: all 0.3s !important;
-    }
-    
-    .stButton>button:hover {
-        background: #00796B !important;
-        box-shadow: 0 4px 12px rgba(0,152,136,0.3) !important;
-    }
-    
-    .stProgress > div > div > div {
-        background-color: #009688;
-    }
-    
-    .usage-stats {
-        background: white;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        border-left: 4px solid #009688;
-    }
-    
-    .search-result-item {
-        background: #f8f9fa;
-        padding: 0.75rem;
-        margin: 0.5rem 0;
-        border-radius: 6px;
-        cursor: pointer;
-        border: 1px solid #dee2e6;
-    }
-    
-    .search-result-item:hover {
-        background: #e9ecef;
-        border-color: #009688;
-    }
-    </style>
-""", unsafe_allow_html=True)
+st.session_state["MAX_UPLOAD_SIZE_MB"] = 500
+st.markdown("<style>.stFileUploader input[type=file] {max-file-size: 500MB;}</style>", unsafe_allow_html=True)
 
+
+def get_base64_image(image_path):
+    """Convert image to base64"""
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except FileNotFoundError:
+        st.warning(f"⚠️ Background image not found at: {image_path}")
+        return None
+    except Exception as e:
+        st.warning(f"⚠️ Error loading background: {e}")
+        return None
+
+import os
+
+import requests
+BACKEND_URL = "http://127.0.0.1:8009/chat"
+
+def ask_backend(question, transcription):
+    payload = {
+        "query": question,
+        "transcription": transcription
+    }
+    res = requests.post(BACKEND_URL, json=payload)
+    return res.json().get("answer", "No answer")
+
+
+# Get the directory where the script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# OPTION 1: Use assets folder
+background_path = os.path.join(script_dir, "assets", "podcast.jpg")
+
+# OPTION 2: If assets folder doesn't work, try direct path
+# background_path = "assets/background.png"
+
+# Debug output
+print(f"Script directory: {script_dir}")
+print(f"Background path: {background_path}")
+print(f"File exists: {os.path.exists(background_path)}")
+
+background_b64 = get_base64_image(background_path)
+
+
+if background_b64:
+    st.markdown(f"""
+        <style>
+        #MainMenu {{visibility: hidden;}}
+        footer {{visibility: hidden;}}
+        header {{visibility: hidden;}}
+        
+        /* Background on root with darker overlay for better contrast */
+        .stApp {{
+            background: linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)),
+                url('data:image/png;base64,{background_b64}') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-attachment: fixed !important;
+    background-repeat: no-repeat !important;
+}}
+
+        
+        /* Transparent main containers */
+        .main {{
+            background: transparent !important;
+        }}
+        
+        .main .block-container {{
+            background: transparent !important;
+        }}
+        
+        /* Header - Keep solid */
+        .main-header {{
+            background: linear-gradient(90deg, #009688 0%, #263238 100%) !important;
+            padding: 1rem 2rem;
+            margin: -6rem -6rem 2rem -6rem;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 100;
+        }}
+        
+        .header-content {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1400px;
+            margin: 0 auto;
+        }}
+        
+        .logo-section {{
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }}
+        
+        .logo-circle {{
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #009688;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }}
+        
+        /* ALL HEADINGS - WHITE with shadow */
+        .main .block-container h1,
+        .main .block-container h2,
+        .main .block-container h3,
+        .main .block-container h4 {{
+            color: #ffffff !important;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            font-weight: 600 !important;
+        }}
+        
+        /* ALL PARAGRAPHS - black */
+        .main .block-container p {{
+            color: #000000 !important;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.7);
+        }}
+        
+        /* ALL DIV TEXT - WHITE */
+        .main .block-container div {{
+            color: #000000 !important;
+        }}
+        
+        /* MARKDOWN TEXT - WHITE */
+        .main .block-container .markdown-text-container {{
+            color: #000000 !important;
+        }}
+        
+        /* SIDEBAR HEADINGS - WHITE with teal accent */
+        [data-testid="stSidebar"] h1,
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3,
+        [data-testid="stSidebar"] h4 {{
+            color: #000000 !important;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+        }}
+        
+        /* SIDEBAR TEXT - WHITE */
+        [data-testid="stSidebar"] p,
+        [data-testid="stSidebar"] div,
+        [data-testid="stSidebar"] span {{
+            color: #000000 !important;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }}
+        
+        /* SIDEBAR BACKGROUND - Semi-transparent */
+        [data-testid="stSidebar"] {{
+            background: rgba(10, 50, 50, 0.7) !important;
+            backdrop-filter: blur(15px);
+            box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+        }}
+        
+        /* SIDEBAR section labels */
+        [data-testid="stSidebar"] .element-container {{
+            color: #000000 !important;
+        }}
+        
+        /* Usage stats card - Keep white background, dark text */
+        .usage-stats {{
+            background: rgba(255, 255, 255, 0.98) !important;
+            backdrop-filter: blur(12px);
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #009688;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        }}
+        
+        .usage-stats p {{
+            color: #2d3748 !important;
+            text-shadow: none !important;
+        }}
+        
+        /* Cards - Solid white with dark text */
+        .upload-modal {{
+            background: rgba(255, 255, 255, 0.99) !important;
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 150, 136, 0.3);
+        }}
+        
+        .upload-modal h1,
+        .upload-modal h2,
+        .upload-modal h3,
+        .upload-modal p,
+        .upload-modal div {{
+            color: #2d3748 !important;
+            text-shadow: none !important;
+        }}
+        
+        /* Drag-drop area */
+        .drag-drop-area {{
+            border: 3px dashed #009688;
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.98) !important;
+            backdrop-filter: blur(10px);
+            margin: 1.5rem 0;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.05);
+        }}
+        
+        .drag-drop-area:hover {{
+            background: rgba(240, 255, 250, 0.99) !important;
+            box-shadow: 0 4px 20px rgba(0, 150, 136, 0.3);
+        }}
+        
+        /* Transcript container - Solid */
+        .transcript-container {{
+            background: rgba(255, 255, 255, 0.99) !important;
+            backdrop-filter: blur(20px);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-top: 2rem;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(0, 150, 136, 0.2);
+        }}
+        
+        .transcript-container * {{
+            color: #2d3748 !important;
+            text-shadow: none !important;
+        }}
+        
+        /* File items */
+        .file-item {{
+            background: rgba(255, 255, 255, 0.98) !important;
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 0.5rem;
+            border: 1px solid rgba(0, 150, 136, 0.25);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+        }}
+        
+        .file-item:hover {{
+            background: rgba(255, 255, 255, 1) !important;
+            box-shadow: 0 6px 24px rgba(0, 150, 136, 0.35);
+            transform: translateX(4px);
+        }}
+        
+        /* Buttons - More prominent */
+        .stButton>button {{
+            background: linear-gradient(135deg, #009688 0%, #00796B 100%) !important;
+            color: #ffffff !important;
+            border: none !important;
+            border-radius: 10px !important;
+            padding: 0.8rem 2rem !important;
+            font-weight: 600 !important;
+            transition: all 0.3s !important;
+            box-shadow: 0 4px 16px rgba(0, 150, 136, 0.4) !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }}
+        
+        .stButton>button:hover {{
+            background: linear-gradient(135deg, #00796B 0%, #00695C 100%) !important;
+            box-shadow: 0 6px 20px rgba(0, 150, 136, 0.5) !important;
+            transform: translateY(-2px);
+        }}
+        
+        /* Timestamp styling */
+        .timestamp {{
+            color: #009688;
+            font-weight: 700;
+            font-size: 0.95em;
+            margin-right: 0.5rem;
+            background: rgba(0, 150, 136, 0.15);
+            padding: 0.3rem 0.7rem;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 150, 136, 0.3);
+        }}
+        
+        /* Search results */
+        .search-result-item {{
+            background: rgba(255, 255, 255, 0.98) !important;
+            backdrop-filter: blur(10px);
+            padding: 0.8rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid rgba(0, 150, 136, 0.2);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }}
+        
+        .search-result-item:hover {{
+            background: rgba(240, 255, 250, 0.99) !important;
+            border-color: #009688;
+            box-shadow: 0 4px 16px rgba(0, 150, 136, 0.3);
+        }}
+        
+        /* Input fields - Solid backgrounds */
+        .stTextInput > div > div > input,
+        .stTextArea > div > div > textarea {{
+            background: rgba(255, 255, 255, 0.98) !important;
+            border: 1px solid rgba(0, 150, 136, 0.3) !important;
+            color: #2d3748 !important;
+        }}
+        
+        .stSelectbox > div > div {{
+            background: rgba(255, 255, 255, 0.98) !important;
+            border: 1px solid rgba(0, 150, 136, 0.3) !important;
+        }}
+        
+        /* File uploader */
+        [data-testid="stFileUploader"] {{
+            background: rgba(255, 255, 255, 0.98) !important;
+            border-radius: 10px;
+            padding: 1rem;
+        }}
+        
+        [data-testid="stFileUploader"] * {{
+            color: #2d3748 !important;
+        }}
+        
+        /* Progress bars */
+        .stProgress > div > div > div {{
+            background: linear-gradient(90deg, #009688 0%, #00796B 100%) !important;
+        }}
+        
+        /* Info/Warning/Error boxes */
+        .stAlert {{
+            background: rgba(255, 255, 255, 0.98) !important;
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+        }}
+        
+        /* Expander */
+        .streamlit-expanderHeader {{
+            background: rgba(255, 255, 255, 0.95) !important;
+            border-radius: 8px;
+        }}
+        
+        /* Caption text - keep visible */
+        .caption {{
+            color: #e0e0e0 !important;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6) !important;
+        }}
+        
+        /* Streamlit markdown - force black */
+        .stMarkdown {{
+            color: #000000 !important;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
 # Initialize session state
 if 'transcriptions' not in st.session_state:
     st.session_state.transcriptions = []
@@ -223,222 +439,55 @@ if 'assemblyai_key' not in st.session_state:
     # Replace this with your actual AssemblyAI API key
     st.session_state.assemblyai_key = 'b47ac0657d2a40a391296e6b09578629'
 
-# -----------------------------
-# Embedded DejaVuSans Base64 Font Data
-# -----------------------------
-DEJAVU_FONT_BASE64 = """
-AAEAAAASAQAABAAgR0RFRrRCsIIAAjWsAAACYkdQT1OxXG0yAAIxUAAADmJHU1VCVvZxVQACNkQAAE
-OBk9TLzJp9Y8AAARsAAAIMEdjbWFw6AHkEAAE8wAAAORmZ2FzcAAAAAEABEwAAAAIZ2x5ZvdUAw4A
-AhxwAAAIImhlYWQTFQq3AAMb8AAAADZoaGVhCGgPvAADEfAAAABQaG10eEeQB9IAAxQQAAAAIGxv
-Y2EEMQInAAMp8AAAABJtYXhwAQACAAADNQAAAAgbmFtZQAAAgAAAzwAAAEQcG9zdAAAAgAADQUAA
-AAUcHJlcAAAAAIAAAQqAAAAIAEAAf//AAD/////AAAAAW4FpgAAAAD6AQUAAQAAAAAAAAAAAAAAAA
-...
-"""
-
+# def user_query(user_question, transcription_text):
+#     """Wrapper to run async chatbot function in Streamlit"""
+#     try:
+#         loop = asyncio.new_event_loop()
+#         asyncio.set_event_loop(loop)
+#         result = loop.run_until_complete(
+#             get_insights_from_video(user_question, transcription_text)
+#         )
+#         loop.close()
+#         return result
+#     except Exception as e:
+#         logger.error(f"Error in user_query: {str(e)}")
+#         return f"<h3 style='color:#ff0000;'>Error: {str(e)}</h3>"
 
 
 
 # Enhanced transcription functions
-import base64
-import os
-
-def get_dejavu_font():
-    font_path = "DejaVuSans.ttf"
-
-    # Write the font file from Base64 (NO internet)
-    if not os.path.isfile(font_path):
-        with open(font_path, "wb") as f:
-            f.write(base64.b64decode(DEJAVU_FONT_BASE64))
-
-    return font_path
 
 
-# def transcribe_video_to_text_enhanced(file_path):
-#     """Extract audio or process audio-only file using pydub without ffmpeg."""
-#     try:
-#         file_ext = os.path.splitext(file_path)[1].lower()
-
-#         # Audio types supported by Pydub
-#         audio_types = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-
-#         # If it's audio → open directly
-#         if file_ext in audio_types:
-#             audio = AudioSegment.from_file(file_path)
-
-#         # If it's video → still works with pydub (pure python)
-#         else:
-#             audio = AudioSegment.from_file(file_path)
-
-#         # Convert to 16KHz mono WAV
-#         audio_path = "temp_audio.wav"
-#         audio = audio.set_frame_rate(16000).set_channels(1)
-#         audio.export(audio_path, format="wav")
-
-#         return audio_path
-
-#     except Exception as e:
-#         st.error(f"Error processing file: {e}")
-#         return None
-
-    
-# import ffmpeg
-
-# def transcribe_video_to_text_enhanced(file_path):
-#     """Extract audio from video OR process audio file directly (no MoviePy needed)"""
-#     try:
-#         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-#         file_ext = os.path.splitext(file_path)[1].lower()
-
-#         audio_path = "temp_audio.wav"
-
-#         if file_ext in audio_extensions:
-#             # Directly convert audio file to WAV
-#             (
-#                 ffmpeg
-#                 .input(file_path)
-#                 .output(audio_path, ac=1, ar=16000)
-#                 .overwrite_output()
-#                 .run(quiet=True)
-#             )
-#         else:
-#             # Extract audio from video using ffmpeg
-#             (
-#                 ffmpeg
-#                 .input(file_path)
-#                 .output(audio_path, ac=1, ar=16000)
-#                 .overwrite_output()
-#                 .run(quiet=True)
-#             )
-
-#         return audio_path
-
-#     except Exception as e:
-#         st.error(f"Error processing file: {e}")
-#         return None
-
-# def transcribe_video_to_text_enhanced(video_path):
-#     """Extract audio from video OR process audio file directly"""
-#     try:
-#         # Check if it's already an audio file
-#         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-#         file_ext = os.path.splitext(video_path)[1].lower()
-        
-#         if file_ext in audio_extensions:
-#             # It's an audio file, convert to WAV format
-#             st.info(f"📢 Processing audio file: {os.path.basename(video_path)}")
-#             audio = AudioSegment.from_file(video_path)
-#             audio_path = "temp_audio.wav"
-#             audio.export(
-#                 audio_path,
-#                 format="wav",
-#                 parameters=["-ar", "16000", "-ac", "1"]
-#             )
-#             return audio_path
-#         else:
-#             # It's a video file, extract audio
-#             st.info(f"🎬 Extracting audio from video: {os.path.basename(video_path)}")
-#             video_clip = VideoFileClip(video_path)
-#             audio_clip = video_clip.audio
-#             audio_path = "temp_audio.wav"
-            
-#             audio_clip.write_audiofile(
-#                 audio_path,
-#                 fps=16000,
-#                 nbytes=2,
-#                 codec='pcm_s16le',
-#                 logger=None
-#             )
-            
-#             audio_clip.close()
-#             video_clip.close()
-            
-#             return audio_path
-#     except Exception as e:
-#         st.error(f"Error processing file: {e}")
-#         return None
-# def transcribe_video_to_text_enhanced(video_path):
-#     """Extract audio from video with optimized settings"""
-#     try:
-#         video_clip = VideoFileClip(video_path)
-#         audio_clip = video_clip.audio
-#         audio_path = "temp_audio.wav"
-        
-#         audio_clip.write_audiofile(
-#             audio_path,
-#             fps=16000,
-#             nbytes=2,
-#             codec='pcm_s16le',
-#             logger=None
-            
-#         )
-        
-#         audio_clip.close()
-#         video_clip.close()
-        
-#         return audio_path
-#     except Exception as e:
-#         st.error(f"Error extracting audio: {e}")
-#         return None
-
-def transcribe_video_to_text_enhanced(file_path):
-    """Extract audio from video OR process audio file directly"""
+def transcribe_video_to_text_enhanced(video_path):
+    """Extract audio from video with optimized settings"""
     try:
-        audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-        file_ext = os.path.splitext(file_path)[1].lower()
-        
+        video_clip = VideoFileClip(video_path)
+        audio_clip = video_clip.audio
         audio_path = "temp_audio.wav"
         
-        if file_ext in audio_extensions:
-            # ✅ Audio file - Direct processing with pydub
-            st.info(f"🎵 Processing audio file: {os.path.basename(file_path)}")
+        audio_clip.write_audiofile(
+            audio_path,
+            fps=16000,
+            nbytes=2,
+            codec='pcm_s16le',
+            logger=None,
             
-            try:
-                # Try with pydub (requires ffmpeg)
-                audio = AudioSegment.from_file(file_path)
-                audio = audio.set_frame_rate(16000).set_channels(1)
-                audio.export(audio_path, format="wav")
-                return audio_path
-                
-            except FileNotFoundError as e:
-                if 'ffprobe' in str(e) or 'ffmpeg' in str(e):
-                    st.error("❌ FFmpeg is not installed!")
-                    st.error("Please install FFmpeg:")
-                    st.code("Windows: Download from https://www.gyan.dev/ffmpeg/builds/")
-                    st.code("Linux: sudo apt install ffmpeg")
-                    st.code("macOS: brew install ffmpeg")
-                    return None
-                raise
-                
-        else:
-            # ✅ Video file - Extract audio with MoviePy
-            st.info(f"🎬 Extracting audio from video: {os.path.basename(file_path)}")
-            
-            try:
-                video_clip = VideoFileClip(file_path)
-                audio_clip = video_clip.audio
-                
-                audio_clip.write_audiofile(
-                    audio_path,
-                    fps=16000,
-                    nbytes=2,
-                    codec='pcm_s16le',
-                    logger=None
-                )
-                
-                audio_clip.close()
-                video_clip.close()
-                return audio_path
-                
-            except Exception as e:
-                if 'ffmpeg' in str(e).lower():
-                    st.error("❌ FFmpeg is required for video processing!")
-                    st.error("Please install FFmpeg (see instructions above)")
-                    return None
-                raise
-            
+        )
+        
+        audio_clip.close()
+        video_clip.close()
+        
+        return audio_path
     except Exception as e:
-        st.error(f"Error processing file: {e}")
+        st.error(f"Error extracting audio: {e}")
         return None
+    
+    
+
+
+
+
+
 def transcribe_with_assemblyai(audio_path, show_timestamps=False):
     """Super fast transcription using AssemblyAI"""
     if not ASSEMBLYAI_AVAILABLE:
@@ -614,29 +663,41 @@ def transcribe_long_audio_enhanced(file_path, chunk_length_ms=60000, show_timest
         st.info("💡 Try using AssemblyAI (fastest) or Vosk (offline) instead")
         return None, None
 
-
-
 # Export functions
 def export_summary_to_pdf(summary_text, filename):
+    """Export formatted summary to PDF"""
+    if not PDF_AVAILABLE:
+        return summary_text.encode('utf-8')
+    
     try:
         from fpdf import FPDF
         
         pdf = FPDF()
         pdf.add_page()
         pdf.set_auto_page_break(auto=True, margin=15)
-
-        pdf.set_font("Arial", size=11)
-
-        clean = summary_text.encode("ascii", "ignore").decode()
-        for line in clean.split("\n"):
-            pdf.multi_cell(0, 7, line)
-
-        return pdf.output(dest="S").encode("latin-1", "ignore")
-
+        
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, 'AI Summary', 0, 1, 'C')
+        pdf.ln(5)
+        
+        pdf.set_font("Arial", size=10)
+        
+        lines = summary_text.split('\n')
+        for line in lines:
+            safe_line = line.encode('ascii', 'ignore').decode('ascii')
+            if safe_line.startswith('#'):
+                pdf.set_font("Arial", 'B', 12)
+                pdf.multi_cell(0, 6, txt=safe_line.replace('#', '').strip())
+                pdf.set_font("Arial", size=10)
+            else:
+                pdf.multi_cell(0, 6, txt=safe_line)
+            pdf.ln(2)
+        
+        return bytes(pdf.output())
+        
     except Exception as e:
-        st.error(f"PDF export failed: {e}")
-        return None
-
+        st.error(f"Error creating PDF: {e}")
+        return summary_text.encode('utf-8')
 
 def export_summary_to_docx(summary_text, filename):
     """Export formatted summary to DOCX"""
@@ -664,25 +725,44 @@ def export_summary_to_docx(summary_text, filename):
     except Exception as e:
         st.error(f"Error creating DOCX: {e}")
         return None
+
 def export_to_pdf(text, filename):
+    """Export transcription to PDF"""
     try:
-        from fpdf import FPDF
+        if PDF_AVAILABLE:
+            try:
+                from fpdf import FPDF
+                
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.set_auto_page_break(auto=True, margin=15)
+                
+                pdf.set_font("Arial", 'B', 16)
+                pdf.cell(0, 10, 'Transcription', 0, 1, 'C')
+                pdf.ln(10)
+                
+                pdf.set_font("Arial", size=11)
+                
+                clean_text = text.replace('\r', '').replace('\x00', '')
+                paragraphs = clean_text.split('\n')
+                
+                for para in paragraphs:
+                    if para.strip():
+                        safe_para = para.encode('ascii', 'ignore').decode('ascii')
+                        pdf.multi_cell(0, 6, txt=safe_para)
+                        pdf.ln(2)
+                
+                return bytes(pdf.output())
+                
+            except Exception as e:
+                st.warning(f"FPDF failed: {e}. Using simple text PDF.")
         
-        pdf = FPDF()
-        pdf.add_page()
-
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.set_font("Arial", size=11)
-
-        for line in text.split("\n"):
-            pdf.multi_cell(0, 7, line)
-
-        return pdf.output(dest="S").encode("latin-1", "ignore")
-
+        st.info("PDF library not available. Downloading as formatted text instead.")
+        return text.encode('utf-8')
+        
     except Exception as e:
-        st.error(f"PDF export failed: {e}")
+        st.error(f"Error creating PDF: {e}")
         return None
-
 
 def export_to_docx(text, filename):
     """Export transcription to DOCX"""
@@ -760,7 +840,8 @@ Please maintain the exact heading format with emojis."""
                 del st.session_state.gemini_api_key
         
         return None
-    # ==================== SOW & MOM GENERATION FUNCTIONS ====================
+
+# ==================== SOW & MOM GENERATION FUNCTIONS ====================
 
 def generate_sow_from_transcription(transcription_text, api_key):
     """Generate Statement of Work from transcription using Gemini AI"""
@@ -1166,27 +1247,20 @@ with col_main:
         st.session_state.show_search = False
         st.session_state.show_recent_files = False
     
+    
+    
+    
     # Upload Modal
     if st.session_state.show_upload_modal or st.session_state.current_transcription is None:
         with st.container():
             st.markdown('<div class="upload-modal">', unsafe_allow_html=True)
             st.markdown("### ☁️ Transcribe Files")
             
+            
+
+    
             # File uploader
             st.markdown('<div class="drag-drop-area">', unsafe_allow_html=True)
-            # uploaded_file = st.file_uploader(
-            #     "Drag and drop file here\nLimit 500MB per file • Audio & Video Files Supported",
-            #     type=['mp3', 'mp4', 'm4a', 'mov', 'aac', 'wav', 'ogg', 'opus', 'mpeg', 'wma', 'wmv', 'mpg', 'mpeg4', 'flac', 'webm', 'avi'],
-            #     label_visibility="collapsed",
-            #     accept_multiple_files=False,
-            #     key="file_uploader",
-            #     help="File must be 500MB or smaller."
-            # )
-            # if not uploaded_file:
-            #     st.markdown("**🎵 Audio Files:** MP3, WAV, M4A, AAC, OGG, OPUS, WMA, FLAC")
-            #     st.markdown("**🎬 Video Files:** MP4, MOV, MPEG, WMV, MPG, MPEG4, WEBM, AVI")
-            #     st.markdown("— OR —")
-            #     st.markdown("**BROWSE FILES**")
             uploaded_file = st.file_uploader(
                 "Drag and drop file here\nLimit 500MB per file • MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, MPEG, WMA, WMV, MPG, MPEG4",
                 type=['mp3', 'mp4', 'm4a', 'mov', 'aac', 'wav', 'ogg', 'opus', 'mpeg', 'wma', 'wmv', 'mpg', 'mpeg4'],
@@ -1231,39 +1305,6 @@ with col_main:
                 )
             
             # Transcribe button
-            # if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
-            #     # Save uploaded file
-            #         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-            #             tmp_file.write(uploaded_file.getvalue())
-            #             file_path = tmp_file.name
-                
-            #     # Detect file type (NOW INSIDE THE BUTTON CLICK)
-            #         file_ext = os.path.splitext(uploaded_file.name)[1].lower()
-            #         audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-                
-            #         if file_ext in audio_extensions:
-            #             with st.spinner("🎵 Processing audio file..."):
-            #                 audio_path = transcribe_video_to_text_enhanced(file_path)
-            #         else:
-            #             with st.spinner("🎬 Extracting audio from video..."):
-            #                 audio_path = transcribe_video_to_text_enhanced(file_path)
-            
-            # if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
-            #       # Save uploaded file
-            #       with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-            #           tmp_file.write(uploaded_file.getvalue())
-            #           file_path = tmp_file.name
-    
-    # Detect file type
-            # file_ext = os.path.splitext(uploaded_file.name)[1].lower()
-            # audio_extensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.flac']
-    
-            # if file_ext in audio_extensions:
-            #     with st.spinner("🎵 Processing audio file..."):
-            #         audio_path = transcribe_video_to_text_enhanced(file_path)
-            # else:
-            #     with st.spinner("🎬 Extracting audio from video..."):
-            #         audio_path = transcribe_video_to_text_enhanced(file_path)
             if uploaded_file and st.button("🎬 TRANSCRIBE", use_container_width=True, type="primary"):
                 # Save uploaded file
                 with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
@@ -1273,78 +1314,278 @@ with col_main:
                 with st.spinner("🎬 Extracting audio from video..."):
                     audio_path = transcribe_video_to_text_enhanced(video_path)
                 
-                    if audio_path:
+                if audio_path:
                     # Choose transcription engine
-                        if 'engine' in locals():
-                            if "AssemblyAI" in engine:
-                                with st.spinner("☁️ Transcribing with AssemblyAI..."):
-                                    transcription, timestamped = transcribe_with_assemblyai(
-                                        audio_path,
-                                        show_timestamps=show_timestamps
+                    if 'engine' in locals():
+                        if "AssemblyAI" in engine:
+                            with st.spinner("☁️ Transcribing with AssemblyAI..."):
+                                transcription, timestamped = transcribe_with_assemblyai(
+                                    audio_path,
+                                    show_timestamps=show_timestamps
                                 )
+                                # 
+                                # video_result = get_insights_from_video(transcription, user_query)
                         # elif "Vosk" in engine and VOSK_AVAILABLE:
                         #     with st.spinner("💻 Transcribing with Vosk..."):
                         #         transcription, timestamped = transcribe_with_vosk(
                         #             audio_path,
                         #             show_timestamps=show_timestamps
                         #         )
-                            else:
-                                with st.spinner("⚡ Transcribing with Google API (Parallel)..."):
-                                    transcription, timestamped = transcribe_long_audio_enhanced(
-                                        audio_path, 
-                                        chunk_length_ms=180000,  # 1 minute per chunk
-                                        show_timestamps=show_timestamps
-                                    )
                         else:
-                             with st.spinner("🎙️ Transcribing with Google Speech API..."):
+                            with st.spinner("⚡ Transcribing with Google API (Parallel)..."):
                                 transcription, timestamped = transcribe_long_audio_enhanced(
                                     audio_path, 
                                     chunk_length_ms=180000,  # 1 minute per chunk
                                     show_timestamps=show_timestamps
                                 )
+                                # video_result = get_insights_from_video(transcription, user_query)
+                                
+                    else:
+                        with st.spinner("🎙️ Transcribing with Google Speech API..."):
+                            transcription, timestamped = transcribe_long_audio_enhanced(
+                                audio_path, 
+                                chunk_length_ms=180000,  # 1 minute per chunk
+                                show_timestamps=show_timestamps
+                            )
+                            # video_result = get_insights_from_video(transcription, user_query)
                     
-                        if transcription:
+                    if transcription:
                         # Calculate duration (simple estimation)
-                            try:
-                                audio = AudioSegment.from_file(audio_path)
-                                duration_seconds = len(audio) / 1000
-                                duration_minutes = int(duration_seconds / 60)
-                                duration = f"{duration_minutes}m"
-                            except:
-                                duration = "N/A"
+                        try:
+                            audio = AudioSegment.from_file(audio_path)
+                            duration_seconds = len(audio) / 1000
+                            duration_minutes = int(duration_seconds / 60)
+                            duration = f"{duration_minutes}m"
+                        except:
+                            duration = "N/A"
                         
                         # Save transcription
-                            st.session_state.current_transcription = {
-                                'filename': uploaded_file.name,
-                                'text': transcription,
-                                'timestamped': timestamped,
-                                'date': datetime.now().strftime("%b %d, %Y, %I:%M %p"),
-                                'duration': duration,
-                                'summary': None
-                            }
-                            st.session_state.transcriptions.append(st.session_state.current_transcription)
-                            st.session_state.show_upload_modal = False
+                        st.session_state.current_transcription = {
+                            'filename': uploaded_file.name,
+                            'text': transcription,
+                            'timestamped': timestamped,
+                            'date': datetime.now().strftime("%b %d, %Y, %I:%M %p"),
+                            'duration': duration,
+                            'summary': None
+                        }
+                        st.session_state.transcriptions.append(st.session_state.current_transcription)
+                        st.session_state.show_upload_modal = False
                         
                         # Cleanup
                         if os.path.exists(audio_path):
                             os.remove(audio_path)
                         if os.path.exists(video_path):
                             os.remove(video_path)
-                        # # Cleanup
-                        #     if os.path.exists(audio_path):
-                        #         os.remove(audio_path)
-                        #     if os.path.exists(file_path):
-                        #         os.remove(file_path)
                         
-                            st.success("✅ Transcription saved successfully!")
-                            st.rerun()
+                        st.success("✅ Transcription saved successfully!")
+                        st.rerun()
             
             st.markdown('</div>', unsafe_allow_html=True)
+            
+            
     
     # Display transcription result
     if st.session_state.current_transcription and not st.session_state.show_upload_modal:
         st.markdown("---")
         
+        
+        
+        # ==================== CHATBOT SECTION ====================
+#     if st.session_state.current_transcription and not st.session_state.show_upload_modal:
+#         st.markdown("---")
+        
+#         # Chatbot Header
+#         st.markdown("""
+#             <div style='background: rgba(255,255,255,0.95); padding: 1rem 1.5rem; 
+#                     border-radius: 10px; margin-top: 1rem; border-left: 4px solid #009688;'>
+#             <h3 style='color:#00796B; margin:0.5rem 0;'>💬 Ask Questions About This Transcription</h3>
+#             <p style='color:#374151; font-size: 14px; margin: 0.5rem 0;'>
+#                 🤖 Ask anything about key points, decisions, action items, or specific details from the meeting.
+#             </p>
+#         </div>
+#         """, unsafe_allow_html=True)
+        
+#         # Initialize chat history
+#         if 'chat_history' not in st.session_state:
+#             st.session_state.chat_history = []
+        
+#         # Display chat messages
+#         if st.session_state.chat_history:
+#             st.markdown("#### 📝 Conversation History")
+            
+#             for i, chat in enumerate(st.session_state.chat_history):
+#                 # User message
+#                 st.markdown(f"""
+#                 <div style="background:#E3F2FD; padding:12px 16px; border-radius:10px; 
+#                            margin:10px 0; border-left:4px solid #2196F3;">
+#                     <strong style='color:#0D47A1;'>👤 You:</strong>
+#                     <div style='color:#1E293B; margin-top:6px;'>{chat['question']}</div>
+#                 </div>
+#                 """, unsafe_allow_html=True)
+                
+#                 # Bot response (HTML content from chatbot)
+#                 # Bot response (HTML content from chatbot)
+#                 st.markdown(f"""
+# <div style="background:#1B5E20; padding:12px 16px; border-radius:10px; 
+#            margin:10px 0; border-left:4px solid #4CAF50;">
+#     <strong style='color:#FFFFFF;'>🤖 Assistant:</strong>
+#     <div style='margin-top:6px; color:#FFFFFF;'>{chat['answer']}</div>
+# </div>
+# """, unsafe_allow_html=True)
+        
+#         # Chat input form
+#         st.markdown("#### 💭 Ask Your Question")
+        
+#         with st.form(key="chatbot_form", clear_on_submit=True):
+#             user_question = st.text_area(
+#                 "Type your question here:",
+#                 placeholder="Example: What were the main decisions made in this meeting? What action items were discussed?",
+#                 height=80,
+#                 key="chat_input"
+#             )
+            
+#             col1, col2 = st.columns([3, 1])
+            
+#             with col1:
+#                 submit_chat = st.form_submit_button("🚀 Ask Question", type="primary", use_container_width=True)
+            
+#             with col2:
+#                 if st.session_state.chat_history:
+#                     if st.form_submit_button("🗑️ Clear Chat", use_container_width=True):
+#                         st.session_state.chat_history = []
+#                         st.rerun()
+        
+#         # Process chat query
+#         if submit_chat and user_question and user_question.strip():
+#             with st.spinner("🤖 Analyzing transcription and generating answer..."):
+#                 try:
+#                     # Call the async chatbot function
+#                     answer = user_query(
+#                         user_question,
+#                         st.session_state.current_transcription["text"]
+#                     )
+                    
+#                     # Save to chat history
+#                     st.session_state.chat_history.append({
+#                         'question': user_question,
+#                         'answer': answer,
+#                         'timestamp': datetime.now().strftime("%I:%M %p")
+#                     })
+                    
+#                     st.success("✅ Answer generated!")
+#                     st.rerun()
+                    
+#                 except Exception as e:
+#                     st.error(f"❌ Error: {str(e)}")
+#                     st.info("💡 Make sure your Gemini API key is configured correctly")
+        
+        # ==================== CHATBOT SECTION ====================
+        # ==================== CHATBOT SECTION ====================
+        if st.session_state.current_transcription and not st.session_state.show_upload_modal:
+            st.markdown("---")
+
+            st.markdown("""
+    <div style='background: rgba(255,255,255,0.85); padding: 8px 16px; 
+                border-radius: 8px; margin-top: 1rem;'>
+        <h4 style='color:#00796B; margin:4px 0;'>💬 Ask Questions About This Transcription</h4>
+        <p style='color:#374151; font-size: 13px; margin: 0;'>
+            🤖 Ask anything about key points, decisions, issues, or attendees.
+        </p>
+    </div>
+""", unsafe_allow_html=True)
+
+    
+            # Initialize chat history
+            if 'chat_history' not in st.session_state:
+                st.session_state.chat_history = []
+
+            # Display chat messages
+            if st.session_state.chat_history:
+                st.markdown("#### 📝 Conversation")
+        
+                for i, chat in enumerate(st.session_state.chat_history):
+                    # User message container
+                    st.markdown(f"""
+                        <div style="
+                        background:#E3F2FD;
+                        padding:8px 14px;
+                        border-radius:8px;
+                        margin:8px 0;
+                        border-left:4px solid #2196F3;
+                        font-size:14px;
+                ">
+                    <strong style='color:#0D47A1;'>👤 You:</strong>
+                    <div style='color:#1E293B; margin-top:4px;'>{chat['question']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                    # Bot response container - header
+                    st.markdown(f"""
+<div style="background: linear-gradient(135deg, #009688 0%, #00796B 100%); 
+           padding:12px 16px; border-radius:10px; 
+           margin:10px 0; border-left:4px solid #00BCD4;
+           box-shadow: 0 4px 16px rgba(0, 150, 136, 0.4);">
+    <strong style='color:#FFFFFF;'>🤖 Assistant:</strong>
+    <div style='margin-top:6px; color:#FFFFFF !important;'>{chat['answer']}</div>
+</div>
+""", unsafe_allow_html=True)
+
+
+            # Chat input form
+            st.markdown("#### 💭 Ask Your Question")
+    
+            with st.form(key="chatbot_form", clear_on_submit=True):
+                user_question = st.text_area(
+                    "Type your question here:",
+                    placeholder="Ask anything about this meeting",
+                    height=50,
+                    key="chat_input"
+                )
+
+                col1, col2 = st.columns([3, 1])
+
+                with col1:
+                    submit_chat = st.form_submit_button("🚀 Ask Question", type="primary", use_container_width=True)
+
+                with col2:
+                    if st.session_state.chat_history:
+                        if st.form_submit_button("🗑️ Clear Chat", use_container_width=True):
+                            st.session_state.chat_history = []
+                            st.rerun()
+
+            
+
+            # Process chat query
+            if submit_chat and user_question and user_question.strip():
+                with st.spinner("🤖 Thinking..."):
+                    try:
+                        # answer = get_insights_from_video(
+                        #     user_question,
+                        #     st.session_state.current_transcription["text"]
+                        # )
+                        answer = ask_backend(
+                        user_question,
+                        st.session_state.current_transcription["text"]
+                        )
+
+
+                        st.session_state.chat_history.append({
+                            'question': user_question,
+                            'answer': answer,
+                            'timestamp': datetime.now().strftime("%I:%M %p")
+                        })
+
+                        st.success("✅ Answer ready!")
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+    
+        
+
+
+
+
         # File header
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -1416,6 +1657,7 @@ with col_main:
             st.markdown("### ⚙️ More")
             
             show_ts = st.checkbox("✅ Show Timestamps", value=True)
+            
             # SOW Generation Button
             if st.button("📋 Generate SOW\nScope of Work", use_container_width=True, key="sow_button"):
                 st.session_state.show_sow_generator = True
@@ -1460,9 +1702,288 @@ with col_main:
             else:
                 st.button("🤖 Gemini AI\n(Install: pip install google-generativeai)", disabled=True, use_container_width=True)
             
-            if st.button("🌐 Translate\nTranslate to 134+ languages", use_container_width=True):
+            if st.button("🌐 Translate\n to 134+ languages", use_container_width=True):
                 st.info("Translation feature coming soon!")
+                
+            # ==================== SOW GENERATION SECTION ====================
+    # if st.session_state.show_sow_generator and st.session_state.current_transcription:
+    #     st.markdown("---")
+    #     st.markdown("---")
 
+    #     # Header
+    #     col_h1, col_h2 = st.columns([5, 1])
+    #     with col_h1:
+    #         st.markdown("## 📋 Scope of Work (SOW) Generator")
+    #         st.info("🎯 Generate a professional SOW document from your transcription")
+    #     with col_h2:
+    #         if st.button("❌ Close", use_container_width=True, key="close_sow"):
+    #             st.session_state.show_sow_generator = False
+    #             st.rerun()
+
+    #     st.markdown("---")
+
+    #     # Transcription Preview
+#     st.subheader("📄 Source Transcription")
+#     st.info(f"✅ Using transcription from: **{st.session_state.current_transcription['filename']}**")
+    
+#     trans_preview = st.session_state.current_transcription['text'][:1000]
+#     st.text_area(
+#         "Transcription Preview (first 1000 chars)",
+#         trans_preview + ("..." if len(st.session_state.current_transcription['text']) > 1000 else ""),
+#         height=150,
+#         disabled=True,
+#         key="sow_trans_preview"
+#     )
+
+    #     # Additional context
+    #     additional_sow_context = st.text_area(
+    #         "Additional Context (Optional)",
+    #         placeholder="Add any specific SOW requirements, process details, or constraints...",
+    #         height=100,
+    #         key="sow_additional_context"
+    #     )
+
+    #     st.markdown("---")
+
+    #     # Generate SOW Button
+    #     col_gen1, col_gen2 = st.columns([3, 1])
+
+    #     with col_gen1:
+    #         generate_sow_button = st.button(
+    #             "🚀 Generate SOW Document",
+    #             type="primary",
+    #             use_container_width=True,
+    #             key="generate_sow_btn"
+    #         )
+
+    #     with col_gen2:
+    #         st.metric("Est. Time", "30-60s")
+
+    #     # SOW GENERATION LOGIC
+    #     if generate_sow_button:
+    #         # Check API Key
+    #         if not st.session_state.gemini_api_key:
+    #             st.error("⚠️ Please configure your Gemini API key first")
+    #             with st.form("sow_api_key_form"):
+    #                 quick_key = st.text_input("Enter Gemini API Key:", type="password")
+    #                 if st.form_submit_button("Save Key"):
+    #                     st.session_state.gemini_api_key = quick_key
+    #                     st.success("✅ API key saved! Click Generate SOW again.")
+    #                     st.rerun()
+    #         else:
+    #             # Prepare content
+    #             full_content = st.session_state.current_transcription['text']
+    #             if additional_sow_context:
+    #                 full_content = f"{full_content}\n\nADDITIONAL CONTEXT:\n{additional_sow_context}"
+
+    #             # Generate SOW
+    #             sow_content = generate_sow_from_transcription(full_content, st.session_state.gemini_api_key)
+
+    #             if sow_content:
+    #                 st.session_state.generated_sow = sow_content
+
+    #                 # SUCCESS!
+    #                 st.balloons()
+    #                 st.success("🎉 SOW Generated Successfully!")
+
+    #                 # Display SOW
+    #                 st.markdown("### 📄 Generated Statement of Work")
+    #                 st.markdown(sow_content)
+
+    #                 st.markdown("---")
+    #                 st.markdown("#### 📥 Download SOW")
+
+    #                 col_dl1, col_dl2, col_dl3 = st.columns(3)
+
+    #                 with col_dl1:
+    #                     st.download_button(
+    #                         "📋 Download TXT",
+    #                         data=sow_content,
+    #                         file_name=f"SOW_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+    #                         mime="text/plain",
+    #                         use_container_width=True,
+    #                         key="download_sow_txt"
+    #                     )
+
+    #                 with col_dl2:
+    #                     if DOCX_AVAILABLE:
+    #                         docx_data = export_sow_to_docx(sow_content)
+    #                         if docx_data:
+    #                             st.download_button(
+    #                                 "📝 Download DOCX",
+    #                                 data=docx_data,
+    #                                 file_name=f"SOW_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
+    #                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    #                                 use_container_width=True,
+    #                                 key="download_sow_docx"
+    #                             )
+
+    #                 with col_dl3:
+    #                     if PDF_AVAILABLE:
+    #                         pdf_data = export_to_pdf(sow_content, "SOW.pdf")
+    #                         if pdf_data:
+    #                             st.download_button(
+    #                                 "📄 Download PDF",
+    #                                 data=pdf_data,
+    #                                 file_name=f"SOW_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+    #                                 mime="application/pdf",
+    #                                 use_container_width=True,
+    #                                 key="download_sow_pdf"
+    #                             )
+    #             else:
+    #                 st.error("❌ Failed to generate SOW. Please try again.")
+
+    # # ==================== MOM GENERATION SECTION ====================
+    # if st.session_state.show_mom_generator and st.session_state.current_transcription:
+    #     st.markdown("---")
+    #     st.markdown("---")
+
+    #     # Header
+    #     col_h1, col_h2 = st.columns([5, 1])
+    #     with col_h1:
+    #         st.markdown("## 📝 Minutes of Meeting (MoM) Generator")
+    #         st.info("🎯 Generate professional meeting minutes from your transcription")
+    #     with col_h2:
+    #         if st.button("❌ Close", use_container_width=True, key="close_mom"):
+    #             st.session_state.show_mom_generator = False
+    #             st.rerun()
+
+    #     st.markdown("---")
+
+    #     # Transcription Preview
+    #     st.subheader("📄 Source Transcription")
+    #     st.info(f"✅ Using transcription from: **{st.session_state.current_transcription['filename']}**")
+
+    #     trans_preview = st.session_state.current_transcription['text'][:1000]
+    #     st.text_area(
+    #         "Transcription Preview (first 1000 chars)",
+    #         trans_preview + ("..." if len(st.session_state.current_transcription['text']) > 1000 else ""),
+    #         height=150,
+    #         disabled=True,
+    #         key="mom_trans_preview"
+    #     )
+
+    #     # Meeting Details (Optional)
+    #     with st.expander("📅 Meeting Details (Optional)", expanded=False):
+    #         col1, col2 = st.columns(2)
+
+    #         with col1:
+    #             meeting_title = st.text_input("Meeting Title", key="mom_meeting_title")
+    #             meeting_date = st.date_input("Meeting Date", key="mom_meeting_date")
+
+    #         with col2:
+    #             meeting_time = st.time_input("Meeting Time", key="mom_meeting_time")
+    #             meeting_mode = st.selectbox("Meeting Mode", ["Online", "In-person", "Call", "Hybrid"], key="mom_meeting_mode")
+
+    #     # Additional context
+    #     additional_mom_context = st.text_area(
+    #         "Additional Context (Optional)",
+    #         placeholder="Add participant names, specific action items, or other details...",
+    #         height=100,
+    #         key="mom_additional_context"
+    #     )
+
+    #     st.markdown("---")
+
+    #     # Generate MoM Button
+    #     col_gen1, col_gen2 = st.columns([3, 1])
+
+    #     with col_gen1:
+    #         generate_mom_button = st.button(
+    #             "🚀 Generate MoM Document",
+    #             type="primary",
+    #             use_container_width=True,
+    #             key="generate_mom_btn"
+    #         )
+
+    #     with col_gen2:
+    #         st.metric("Est. Time", "30-60s")
+
+    #     # MOM GENERATION LOGIC
+    #     if generate_mom_button:
+    #         # Check API Key
+    #         if not st.session_state.gemini_api_key:
+    #             st.error("⚠️ Please configure your Gemini API key first")
+    #             with st.form("mom_api_key_form"):
+    #                 quick_key = st.text_input("Enter Gemini API Key:", type="password")
+    #                 if st.form_submit_button("Save Key"):
+    #                     st.session_state.gemini_api_key = quick_key
+    #                     st.success("✅ API key saved! Click Generate MoM again.")
+    #                     st.rerun()
+    #         else:
+    #             # Prepare content
+    #             full_content = st.session_state.current_transcription['text']
+
+    #             # Add meeting details if provided
+    #             if 'meeting_title' in locals() and meeting_title:
+    #                 full_content = f"Meeting Title: {meeting_title}\n\n{full_content}"
+    #             if 'meeting_date' in locals() and meeting_date:
+    #                 full_content = f"Date: {meeting_date}\n{full_content}"
+    #             if 'meeting_time' in locals() and meeting_time:
+    #                 full_content = f"Time: {meeting_time}\n{full_content}"
+    #             if 'meeting_mode' in locals() and meeting_mode:
+    #                 full_content = f"Mode: {meeting_mode}\n{full_content}"
+
+    #             if additional_mom_context:
+    #                 full_content = f"{full_content}\n\nADDITIONAL CONTEXT:\n{additional_mom_context}"
+
+    #             # Generate MoM
+    #             mom_content = generate_mom_from_transcription(full_content, st.session_state.gemini_api_key)
+
+    #             if mom_content:
+    #                 st.session_state.generated_mom = mom_content
+
+    #                 # SUCCESS!
+    #                 st.balloons()
+    #                 st.success("🎉 Minutes of Meeting Generated Successfully!")
+
+    #                 # Display MoM
+    #                 st.markdown("### 📄 Generated Minutes of Meeting")
+    #                 st.markdown(mom_content)
+
+    #                 st.markdown("---")
+    #                 st.markdown("#### 📥 Download MoM")
+
+    #                 col_dl1, col_dl2, col_dl3 = st.columns(3)
+
+    #                 with col_dl1:
+    #                     st.download_button(
+    #                         "📋 Download TXT",
+    #                         data=mom_content,
+    #                         file_name=f"MoM_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+    #                         mime="text/plain",
+    #                         use_container_width=True,
+    #                         key="download_mom_txt"
+    #                     )
+
+    #                 with col_dl2:
+    #                     if DOCX_AVAILABLE:
+    #                         docx_data = export_mom_to_docx(mom_content)
+    #                         if docx_data:
+    #                             st.download_button(
+    #                                 "📝 Download DOCX",
+    #                                 data=docx_data,
+    #                                 file_name=f"MoM_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx",
+    #                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    #                                 use_container_width=True,
+    #                                 key="download_mom_docx"
+    #                             )
+
+    #                 with col_dl3:
+    #                     if PDF_AVAILABLE:
+    #                         pdf_data = export_to_pdf(mom_content, "MoM.pdf")
+    #                         if pdf_data:
+    #                             st.download_button(
+    #                                 "📄 Download PDF",
+    #                                 data=pdf_data,
+    #                                 file_name=f"MoM_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+    #                                 mime="application/pdf",
+    #                                 use_container_width=True,
+    #                                 key="download_mom_pdf"
+    #                             )
+    #             else:
+    #                 st.error("❌ Failed to generate MoM. Please try again.")
+        
         # Transcription display
         st.markdown('<div class="transcript-container">', unsafe_allow_html=True)
         
@@ -1542,54 +2063,4 @@ st.markdown("""
             <a href='#' style='color: #6B7280; margin: 0 0.5rem;'>Privacy</a>
         </p>
     </div>
-
 """, unsafe_allow_html=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
